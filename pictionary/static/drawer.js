@@ -5,6 +5,7 @@
 class Drawer {
     #SVGElement;
     #rect;
+    #hiddenElement;
 
     #buffer = [];
     #bufferSize = 8; // Change to decrease/increase smoothness of paths
@@ -20,10 +21,28 @@ class Drawer {
     /**
      * The SVG element that needs
      * @param {HTMLElement} SVGElement An SVG element to draw in
+     * @param {HTMLElement} hiddenElement An input element to store the SVG data
+     * @param {string} pathColor The color of the path
+     * @param {string} strokeWidth The width of the path
+     * @param {string} strokeEnds The ends of the path
+     * @param {number} bufferSize The size of the buffer
      */
-    constructor(SVGElement) {
-        this.#SVGElement = SVGElement;
-        this.#rect = SVGElement.getBoundingClientRect();
+    constructor(svgElement, hiddenElement = null, pathColor = "#cb1212", strokeWidth = "15", strokeEnds = "round", bufferSize = 8) {
+        this.#SVGElement = svgElement;
+        this.#hiddenElement = hiddenElement;
+        this.#rect = svgElement.getBoundingClientRect();
+        this.#pathColor = pathColor;
+        this.#pathStrokeWidth = strokeWidth;
+        this.#pathStrokeEnds = strokeEnds;
+        this.#bufferSize = bufferSize;
+        this.#SVGElement.addEventListener('mousedown', (event) => { this.startDraw(event) });
+        this.#SVGElement.addEventListener('mousemove', (event) => { this.draw(event) });
+        this.#SVGElement.addEventListener('mouseup', () => {
+            this.stopDraw();
+        });
+        this.#SVGElement.addEventListener('mouseleave', (event) => { 
+            this.stopDrawAndForceToEnd(event);
+        });
     }
 
     /**
@@ -58,16 +77,20 @@ class Drawer {
 
     /**
      * A handler function for 'mouseup'
+     *
+     * @return {void}
      */
     stopDraw() {
         if (this.#path) {
             this.#userPaths.push(this.#path)
             this.#path = null;
+            this.#saveState();
         }
     }
 
     /**
      * A handler function that forces the drawing until event position ('mouseleave')
+     *
      * @param {MouseEvent} e The event object
      */
     stopDrawAndForceToEnd(e) {
@@ -77,16 +100,24 @@ class Drawer {
 
     /**
      * Removes the last path drawn on the SVG
+     *
+     * @return {void}
      */
     undoAction() {
+        // if there are no more paths, clear the state
         if (this.#userPaths.length === 0) {
+            this.#clearState();
             return;
         }
+        // otherwise, remove the path and save the state
         this.#userPaths.pop().remove();
+        this.#saveState();
     }
 
     /**
      * Restores a list of userPaths to the SVG
+     * 
+     * @param {NodeListOf<SVGPathElement>} userPaths A list of SVGPathElement objects
      */
     restorePaths(userPaths) {
         this.#userPaths = [];
@@ -94,24 +125,52 @@ class Drawer {
             this.#SVGElement.appendChild(p);
             this.#userPaths.push(p);
         }
+        this.#saveState();
     }
 
     /**
      * Removes all user-drawn paths from the SVG
+     *
+     * @return {void}
      */
     clearSVG() {
         for (let p of this.#userPaths) {
             p.remove();
         }
         this.#userPaths = [];
+        this.#clearState();
+    }
+
+    /**
+     * Saves the state of the SVG to the hidden input element
+     *
+     * @return {void}
+     */
+    #saveState() {
+        if (this.#hiddenElement) {
+            Helper.exportSVG(this.#SVGElement, true).then((data) => {
+                this.#hiddenElement.value = data;
+            });
+        }
+    }
+
+    /**
+     * Clears the state of the hidden input element
+     *
+     * @return {void}
+     */
+    #clearState() {
+        if (this.#hiddenElement) {
+            this.#hiddenElement.value = "";
+        }
     }
 
     /**
      * Gets relative x- and y-position of mouse within SVG element
+     *
      * @param e
      * @return {{x: number, y: number}}
      */
-
     #getMousePosition(e) {
         return {
             x: e.pageX - this.#rect.left,
@@ -121,6 +180,7 @@ class Drawer {
 
     /**
      * Appends coordinate to buffer for drawing more fluently
+     *
      * @param {{x: number, y: number}} pt
      */
     #appendToBuffer(pt) {
@@ -132,6 +192,8 @@ class Drawer {
 
     /**
      * Gets an average of points from the buffer and appends to SVG path element
+     *
+     * @return {void}
      */
     #updateSvgPath() {
         let pt = this.#getAveragePoint(0);
@@ -155,6 +217,7 @@ class Drawer {
 
     /**
      * Gets an average point based on point buffer
+     *
      * @param {number} offset An offset in the buffer array
      * @return {null|{x: number, y: number}} Returns an average point or null (magic)
      */
@@ -186,6 +249,7 @@ class Drawer {
 class Helper {
     /**
      * Takes a blob object and transforms it into base64-encoded data URL
+     *
      * @param blob The blob to transform
      * @return {Promise<unknown>} Resolves to the base64-encoded string
      */
@@ -200,6 +264,7 @@ class Helper {
 
     /**
      * Helper function to download arbitrary data (text, base64, etc.) from browser
+     *
      * @param {string} dataURL The data to save in a file
      * @param filename The default filename for the user to see
      */
@@ -214,8 +279,12 @@ class Helper {
 
     /**
      * Exports the SVG and downloads
+     *
+     * @return {Promise<void>}
+     * @param {HTMLElement} svgElement The SVG element to export
+     * @param {boolean} asBase64 Whether to return the base64-encoded string instead of downloading
      */
-    static async exportSVG(asBase64 = false) {
+    static async exportSVG(svgElement, asBase64 = false) {
         let svg = svgElement.outerHTML;
         let blob = new Blob([svg], {type: 'image/svg+xml'});
         if (!asBase64) {
@@ -237,6 +306,10 @@ class Helper {
 
     /**
      * Import Base64-encoded SVG and append to the SVG element
+     *
+     * @return {Promise<void>}
+     * @param {Drawer} drawer The drawer object to append the paths to
+     * @param {string} base64String The base64-encoded string
      */
     static async importSVG(drawer, base64String) {
         const parser = new DOMParser();
@@ -249,19 +322,22 @@ class Helper {
 
     /**
      * Exports the SVG to base64 and sends a HTTP request
+     *
      * @return {Promise<void>}
      */
-    static async sendSVG() {
-        let base64String = await this.exportSVG(true);
+    static async sendSVG(svgElement) {
+        let base64String = await this.exportSVG(svgElement, true);
         console.log(base64String);
         // Do stuff here to send using fetch
     }
 
     /**
      * Exports to PNG and downloads
+     *
      * @return {Promise<void>}
+     * @param {HTMLElement} svgElement The SVG element to export
      */
-    static async exportPNG() {
+    static async exportPNG(svgElement) {
         const serializeAsXML = el => (new XMLSerializer()).serializeToString(el);
         const encodeAsUTF8 = serializedString => `${dataHeader},${encodeURIComponent(serializedString)}`
 
@@ -283,14 +359,14 @@ class Helper {
 
         const dataHeader = 'data:image/svg+xml;charset=utf-8';
         const format = 'png';
-        const svgData = encodeAsUTF8(serializeAsXML(SVGelement));
+        const svgData = encodeAsUTF8(serializeAsXML(svgElement));
         const img = await loadImage(svgData)
 
         const canvas = document.createElement('canvas');
         canvas.style.display = 'none';
-        canvas.width = SVGelement.clientWidth;
-        canvas.height = SVGelement.clientHeight;
-        canvas.getContext('2d').drawImage(img, 0, 0, SVGelement.clientWidth, SVGelement.clientHeight)
+        canvas.width = svgElement.clientWidth;
+        canvas.height = svgElement.clientHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0, svgElement.clientWidth, svgElement.clientHeight)
 
         const dataURL = canvas.toDataURL(`image/${format}`, 1.0)
         console.log(dataURL)

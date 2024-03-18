@@ -39,7 +39,6 @@
     <div id="drawing_buttons">
         <button id="clearButton" class="btn btn-danger">Reset</button>
         <button id="undoButton"class="btn btn-warning">Undo</button>
-        <button id="submit"class="btn btn-primary">SUBMIT</button>
     </div>
 </div>
 <input type="hidden" name="drawing" id="drawing" />
@@ -48,24 +47,9 @@
     const SVGelement = document.getElementById('svgElement');
     const drawing = document.getElementById('drawing');
     // Creates a new drawer object using the SVG element
-    drawer = new Drawer(SVGelement)
-
-    // Adds event listeners and handlers for drawing paths on the SVG
-    SVGelement.addEventListener('mousedown', (event) => { drawer.startDraw(event) });
-    SVGelement.addEventListener('mousemove', (event) => { drawer.draw(event) });
-    SVGelement.addEventListener('mouseup', () => { 
-        drawer.stopDraw();
-        const b64svg = Helper.exportSVG(true);
-        drawing.value = b64svg;
-    });
-    SVGelement.addEventListener('mouseleave', (event) => {
-        drawer.stopDrawAndForceToEnd(event);
-        const b64svg = Helper.exportSVG(true);
-        drawing.value = b64svg;
-    });
+    drawer = new Drawer(SVGelement, drawing)
 
     // Adds event listeners and handlers for utility functions
-    document.getElementById('clearButton').addEventListener('click', (e) => { e.preventDefault(); drawer.clearSVG() } )
-    document.getElementById('undoButton').addEventListener('click', (e) => { e.preventDefault(); drawer.undoAction() })
-    document.getElementById('submit').addEventListener('click', (e) => { e.preventDefault(); Helper.sendSVG() })
+    document.getElementById('clearButton').addEventListener('click', (e) => { e.preventDefault(); drawer.clearSVG(); } )
+    document.getElementById('undoButton').addEventListener('click', (e) => { e.preventDefault(); drawer.undoAction(); })
 </script>
