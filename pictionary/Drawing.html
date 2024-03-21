@@ -4,8 +4,13 @@ Phase {{ current_phase }}, Round {{ subsession.round_number }}
 
 {{ block content }}
 
-{{ include "pictionary/template/canvas.html" }}
+{{ stim }}
 
+{{if is_drawer}}
+    {{ include "pictionary/template/canvas.html" }}
+{{else}}
+    {{ include "pictionary/template/ro_canvas.html" }}
+{{endif}}
 {{ next_button }}
 
 {{ endblock }}

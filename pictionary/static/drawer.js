@@ -5,7 +5,9 @@
 class Drawer {
     #SVGElement;
     #rect;
-    #hiddenElement;
+
+    #readOnly = false;
+    #hiddenElement = null;
 
     #buffer = [];
     #bufferSize = 8; // Change to decrease/increase smoothness of paths
@@ -21,28 +23,34 @@ class Drawer {
     /**
      * The SVG element that needs
      * @param {HTMLElement} SVGElement An SVG element to draw in
-     * @param {HTMLElement} hiddenElement An input element to store the SVG data
-     * @param {string} pathColor The color of the path
-     * @param {string} strokeWidth The width of the path
-     * @param {string} strokeEnds The ends of the path
-     * @param {number} bufferSize The size of the buffer
+     * @param {Object} opts An object with optional parameters
+     * @param {boolean} opts.readOnly Whether the drawing should be read-only
+     * @param {HTMLElement} opts.hiddenElement An input element to save the state of the SVG
+     * @param {string} opts.pathColor The color of the path
+     * @param {string} opts.strokeWidth The width of the path
+     * @param {string} opts.strokeEnds The ends of the path
+     * @param {number} opts.bufferSize The size of the buffer
      */
-    constructor(svgElement, hiddenElement = null, pathColor = "#cb1212", strokeWidth = "15", strokeEnds = "round", bufferSize = 8) {
+    constructor(svgElement, opts = {readOnly: false, hiddenElement: null, pathColor: "#cb1212", strokeWidth: "15", strokeEnds: "round", bufferSize: 8}) {
         this.#SVGElement = svgElement;
-        this.#hiddenElement = hiddenElement;
+        this.#hiddenElement = opts.hiddenElement || this.#hiddenElement;
         this.#rect = svgElement.getBoundingClientRect();
-        this.#pathColor = pathColor;
-        this.#pathStrokeWidth = strokeWidth;
-        this.#pathStrokeEnds = strokeEnds;
-        this.#bufferSize = bufferSize;
-        this.#SVGElement.addEventListener('mousedown', (event) => { this.startDraw(event) });
-        this.#SVGElement.addEventListener('mousemove', (event) => { this.draw(event) });
-        this.#SVGElement.addEventListener('mouseup', () => {
-            this.stopDraw();
-        });
-        this.#SVGElement.addEventListener('mouseleave', (event) => { 
-            this.stopDrawAndForceToEnd(event);
-        });
+        this.#pathColor = opts.pathColor || this.#pathColor;
+        this.#pathStrokeWidth = opts.strokeWidth || this.#pathStrokeWidth;
+        this.#pathStrokeEnds = opts.strokeEnds || this.#pathStrokeEnds;
+        this.#bufferSize = opts.bufferSize || this.#bufferSize;
+        this.#readOnly = Object.prototype.hasOwnProperty.call(opts, 'readOnly') ? opts.readOnly : this.#readOnly;
+        if (this.#readOnly !== true) {
+            this.#SVGElement.addEventListener('mousedown', (event) => { this.startDraw(event) });
+            this.#SVGElement.addEventListener('mousemove', (event) => { this.draw(event) });
+            this.#SVGElement.addEventListener('mouseup', () => {
+                this.stopDraw();
+            });
+            this.#SVGElement.addEventListener('mouseleave', (event) => { 
+                this.stopDrawAndForceToEnd(event);
+            });
+        }
+
     }
 
     /**
@@ -120,7 +128,7 @@ class Drawer {
      * @param {NodeListOf<SVGPathElement>} userPaths A list of SVGPathElement objects
      */
     restorePaths(userPaths) {
-        this.#userPaths = [];
+        this.clearSVG();
         for (let p of userPaths) {
             this.#SVGElement.appendChild(p);
             this.#userPaths.push(p);
@@ -150,6 +158,8 @@ class Drawer {
         if (this.#hiddenElement) {
             Helper.exportSVG(this.#SVGElement, true).then((data) => {
                 this.#hiddenElement.value = data;
+                // Trigger change event to notify any listeners
+                this.#hiddenElement.dispatchEvent(new Event('change'));
             });
         }
     }
@@ -162,6 +172,7 @@ class Drawer {
     #clearState() {
         if (this.#hiddenElement) {
             this.#hiddenElement.value = "";
+            this.#hiddenElement.dispatchEvent(new Event('change'));
         }
     }
 

@@ -1,55 +1,15 @@
-<style>
-    #canvas {
-            margin-left: auto;
-            margin-right: auto;
-            width: 800px; /* EDIT TO CHANGE WIDTH */
-        }
-
-    #canvas button {
-        margin: 0 5px;
-    }
-    #canvas #svgContainer {
-        background-color: white; /* EDIT TO CHANGE BACKGROUND COLOR */
-        border: 2px solid black;
-        border-radius: 5px;
-        margin: 0 0 20px 0;
-        box-shadow: 5px 5px 5px rgb(51, 51, 51);
-
-    }
-
-    #canvas #svgElement {
-        text-align: center;
-        display: block;
-        width: 100%;
-        height: 600px; /* EDIT TO CHANGE HEIGHT */
-    }
-
-    #canvas #button_div {
-        display: flex;
-    }
-
-    #canvas #submit {
-        margin-left: auto;
-    }
-</style>
-<div id="canvas">
-    <div id="svgContainer">
-        <svg xmlns="http://www.w3.org/2000/svg" id="svgElement" x="0px" y="0px" xml:space="preserve"></svg>
-    </div>
-    <div id="drawing_buttons">
-        <button id="clearButton" class="btn btn-danger">Reset</button>
-        <button id="undoButton"class="btn btn-warning">Undo</button>
-    </div>
+{{ include_sibling 'pre_canvas.html' }}
+<div id="drawing_buttons">
+    <button id="clearButton" class="btn btn-danger">Reset</button>
+    <button id="undoButton"class="btn btn-warning">Undo</button>
 </div>
-<input type="hidden" name="drawing" id="drawing" />
-<script src="{{ static 'drawer.js' }}"></script>
 <script>
     const SVGelement = document.getElementById('svgElement');
     const drawing = document.getElementById('drawing');
     // Creates a new drawer object using the SVG element
-    drawer = new Drawer(SVGelement, drawing)
-
+    drawer = new Drawer(SVGelement, {hiddenElement: drawing});
+    drawing.addEventListener('change', (e) => { liveSend(drawing.value) });
     // Adds event listeners and handlers for utility functions
-    document.getElementById('clearButton').addEventListener('click', (e) => { e.preventDefault(); drawer.clearSVG(); } )
-    document.getElementById('undoButton').addEventListener('click', (e) => { e.preventDefault(); drawer.undoAction(); })
+    document.getElementById('clearButton').addEventListener('click', (e) => { e.preventDefault(); drawer.clearSVG(); } );
+    document.getElementById('undoButton').addEventListener('click', (e) => { e.preventDefault(); drawer.undoAction(); });
 </script>

@@ -1,0 +1,25 @@
+{{ include_sibling 'pre_canvas.html' }}
+<script>
+    const SVGelement = document.getElementById('svgElement');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    // Creates a new drawer object using the SVG element
+    drawer = new Drawer(SVGelement, {readOnly: true});
+
+    // {{ if blur }}
+    // blur (make optional?)
+    SVGelement.style.filter = "blur(30px)";
+    loadingSpinner.style.display = "block";
+    // {{ endif }}
+    function liveRecv(data) {
+        if (Object.keys(data).includes('drawing')) {
+            if (Object.keys(data).includes('completed') && data.completed) {
+                
+            }
+            if (data.drawing !== null && data.drawing !== "") {
+                Helper.importSVG(drawer, data.drawing);
+            } else {
+                drawer.clearSVG();
+            }
+        }
+    }
+</script>

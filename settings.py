@@ -2,11 +2,31 @@ from os import environ
 
 SESSION_CONFIGS = [
     dict(
-        name='pictionary',
+        name='pictionary_live_drawing',
         app_sequence=[
             'pictionary',
         ],
         num_demo_participants=2,
+        live_draw=True,
+        blur=True,
+    ),
+    dict(
+        name='pictionary_live_drawing_no_blur',
+        app_sequence=[
+            'pictionary',
+        ],
+        num_demo_participants=2,
+        live_draw=True,
+        blur=False,
+    ),
+    dict(
+        name='pictionary_wait_for_complete',
+        app_sequence=[
+            'pictionary',
+        ],
+        num_demo_participants=2,
+        live_draw=False,
+        blur=False,
     ),
 ]
 
@@ -19,7 +39,7 @@ SESSION_CONFIG_DEFAULTS = dict(
     real_world_currency_per_point=1.00, participation_fee=0.00, doc=""
 )
 
-PARTICIPANT_FIELDS: list[str] = []
+PARTICIPANT_FIELDS: list[str] = ['drawings_completed', 'starting_player']
 SESSION_FIELDS: list[str] = ['current_phase', 'stim_order', 'starting_participant']
 
 # ISO-639 code
