@@ -3,7 +3,9 @@ from os import environ
 SESSION_CONFIGS = [
     dict(
         name='pictionary',
-        app_sequence=['pictionary'],
+        app_sequence=[
+            'pictionary',
+        ],
         num_demo_participants=2,
     ),
 ]
@@ -17,8 +19,8 @@ SESSION_CONFIG_DEFAULTS = dict(
     real_world_currency_per_point=1.00, participation_fee=0.00, doc=""
 )
 
-PARTICIPANT_FIELDS = []
-SESSION_FIELDS = []
+PARTICIPANT_FIELDS: list[str] = []
+SESSION_FIELDS: list[str] = ['current_phase', 'stim_order', 'starting_participant']
 
 # ISO-639 code
 # for example: de, fr, ja, ko, zh-hans
@@ -26,12 +28,12 @@ LANGUAGE_CODE = 'en'
 
 # e.g. EUR, GBP, CNY, JPY
 REAL_WORLD_CURRENCY_CODE = 'USD'
-USE_POINTS = True
+USE_POINTS = False
 
 ADMIN_USERNAME = 'admin'
 # for security, best to set admin password in an environment variable
 ADMIN_PASSWORD = environ.get('OTREE_ADMIN_PASSWORD')
 
-DEMO_PAGE_INTRO_HTML = """ """
-
 SECRET_KEY = '1705882164517'
+
+DEBUG = True
