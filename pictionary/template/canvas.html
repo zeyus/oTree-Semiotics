@@ -1,15 +1,324 @@
-{{ include_sibling 'pre_canvas.html' }}
-<div id="drawing_buttons">
-    <button id="clearButton" class="btn btn-danger">Reset</button>
-    <button id="undoButton"class="btn btn-warning">Undo</button>
+<style>
+    #canvas {
+        margin-left: auto;
+        margin-right: auto;
+        width: 800px; /* EDIT TO CHANGE WIDTH */
+        position: relative;
+        display: none;
+    }
+
+    #canvas button {
+        margin: 0 5px;
+    }
+    #canvas .svgContainer {
+        background-color: white; /* EDIT TO CHANGE BACKGROUND COLOR */
+        border: 2px solid black;
+        border-radius: 5px;
+        margin: 0 0 20px 0;
+        box-shadow: 5px 5px 5px rgb(51, 51, 51);
+
+    }
+
+    #canvas .svgElement {
+        text-align: center;
+        display: block;
+        width: 100%;
+        height: 600px; /* EDIT TO CHANGE HEIGHT */
+    }
+
+    #canvas .loading-spinner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+    }
+    #canvas .loading-spinner .spinner-border {
+        width: 300px;
+        height: 300px;
+        animation-duration: 5s;
+        border-width: 10px;
+    }
+    #canvas .waiting-text {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 30px;
+    }
+    .drawing-buttons {
+        display: none;
+    }
+    #waiting {
+        display: none;
+    }
+    #done {
+        display:none;
+    }
+    #select {
+        display:none;
+    }
+</style>
+<div id="waiting" class="container">
+    <div class="card">
+        <h4 class="card-header">
+            Please wait
+        </h4>
+        <div class="card-body">
+            <p>Waiting for other player</p>
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+            </div>
+        </div>
+    </div>
 </div>
+<div id="canvas">
+    <div class="drawing-buttons">
+        <!-- button with icon -->
+        <button type="button" data-bs-toggle="modal" data-bs-target="#clearDrawing" class="btn btn-danger">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+            </svg>
+            Reset
+        </button>
+        <button type="button" id="undoButton" class="undoButton btn btn-warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"/>
+                <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"/>
+            </svg>
+            Undo
+        </button>
+        <!-- Modal -->
+        <div class="modal fade" id="clearDrawing" tabindex="-1" role="dialog" aria-labelledby="clearDrawingLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                    <h5 class="modal-title" id="clearDrawingLabel">Are you sure?</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    </div>
+                    <div class="modal-body">
+                        Please confirm you would like to clear the current drawing and reset to a blank canvas.
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, this was a mistake</button>
+                        <button type="button" id="clearButton" class="clearButton btn btn-danger" data-bs-dismiss="modal">Yes, please clear</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="svgContainer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="svgElement" x="0px" y="0px" xml:space="preserve"></svg>
+    </div>
+    <div class="loading-spinner">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Waiting...</span>
+        </div>
+        <div class="waiting-text">Waiting for other player...</div>
+    </div>
+    <input type="hidden" name="drawing" class="drawing" />
+</div>
+<div id="stim-container"></div>
+<button type="button" id="done" class="btn btn-primary">Done</button>
+<button type="button" id="select" class="btn btn-primary">Select</button>
+<script src="{{ static 'drawer.js' }}"></script>
 <script>
-    const SVGelement = document.getElementById('svgElement');
-    const drawing = document.getElementById('drawing');
-    // Creates a new drawer object using the SVG element
-    drawer = new Drawer(SVGelement, {hiddenElement: drawing});
-    drawing.addEventListener('change', (e) => { liveSend(drawing.value) });
-    // Adds event listeners and handlers for utility functions
-    document.getElementById('clearButton').addEventListener('click', (e) => { e.preventDefault(); drawer.clearSVG(); } );
-    document.getElementById('undoButton').addEventListener('click', (e) => { e.preventDefault(); drawer.undoAction(); });
+    const containerEl = document.getElementById('canvas');
+    const svgContainer = document.getElementsByClassName('svgContainer').item(0);
+    const buttonContainer = document.getElementsByClassName('drawing-buttons').item(0);
+    const waiting = document.getElementById('waiting');
+    const clearBtn = document.getElementById('clearButton');
+    const undoBtn = document.getElementById('undoButton');
+    const doneBtn = document.getElementById('done');
+    const selectBtn = document.getElementById('select');
+    const stimContainer = document.getElementById('stim-container');
+
+    var SVGelement = document.getElementsByClassName('svgElement').item(0);
+    var drawing = document.getElementsByClassName('drawing').item(0);
+    
+    var drawer;
+    
+
+    function cloneAndResetNode(oldNode, parentNode, deep = false) {
+        var newNode = oldNode.cloneNode(deep);
+        parentNode.replaceChild(newNode, oldNode);
+        return newNode;
+    }
+
+    function clearEvent(e) {
+        e.preventDefault();
+        drawer.clearSVG();
+    }
+
+    function undoEvent(e) {
+        e.preventDefault();
+        drawer.undoAction();
+    }
+
+    function doneEvent(e) {
+        e.preventDefault();
+        liveSend({
+            'event': 'drawing_complete',
+            'drawing': drawing.value
+        });
+        // show waiting message
+        reset();
+        initWaiting();
+    }
+
+    function selectEvent(e) {
+        e.preventDefault();
+        liveSend({
+            'event': 'stimulus_selected',
+            'stim': e.target.value
+        });
+    }
+
+    function doneSelectEvent(e) {
+        e.preventDefault();
+        liveSend({
+            'event': 'response_complete',
+            'stim': document.querySelector('input[name="stimulus"]:checked').value
+        });
+        // show waiting message
+        reset();
+        initWaiting();
+    }
+
+    function displayStimuli(stims, selected = '') {
+        // clear the container
+        stimContainer.innerHTML = '';
+        // create a new div for each stimulus
+        stims.forEach((stim, i) => {
+            var div = document.createElement('div');
+            var input = document.createElement('input');
+            var label = document.createElement('label');
+            div.classList.add('stimulus');
+            input.type = 'radio';
+            input.name = 'stimulus';
+            input.value = stim;
+            input.id = 'stim' + i;
+            if (stim === selected) {
+                input.checked = true;
+            }
+            label.htmlFor = 'stim' + i;
+            label.innerText = stim;
+            div.appendChild(input);
+            div.appendChild(label);
+            input.addEventListener('change', selectEvent);
+            stimContainer.appendChild(div);
+        });
+        selectBtn.addEventListener('click', doneSelectEvent);
+        selectBtn.style.display = 'block';
+    }
+
+    function reset() {
+        // hide waiting message
+        waiting.style.display = 'none';
+        // hide buttons
+        buttonContainer.style.display = 'none';
+        doneBtn.style.display = 'none';
+        selectBtn.style.display = 'none';
+        // hide SVG element
+        containerEl.style.display = 'none';
+        // shallow clone to remove event listeners
+        SVGelement = cloneAndResetNode(SVGelement, svgContainer);
+        drawing = cloneAndResetNode(drawing, containerEl);
+        // remove the event listeners if they exist for clear and undo
+        clearBtn.removeEventListener('click', clearEvent);
+        undoBtn.removeEventListener('click', undoEvent);
+        doneBtn.removeEventListener('click', doneEvent);
+        selectBtn.removeEventListener('click', doneSelectEvent);
+    }
+
+
+
+    function initCanvas(update = true, readOnly = false){
+        // Creates a new drawer object using the SVG element
+        console.log("setting up drawer");
+        // show buttons
+        if (!readOnly) buttonContainer.style.display = 'block';
+        if (!readOnly) doneBtn.style.display = 'block';
+        // show SVG element
+        containerEl.style.display = 'block';
+    
+        drawer = new Drawer(SVGelement, {hiddenElement: drawing, readOnly: readOnly});
+        if (update && !readOnly) {
+            drawing.addEventListener('change', (e) => {
+                liveSend({
+                    'event': 'update',
+                    'drawing': drawing.value
+                }); 
+            });
+        }
+        if (!readOnly) {
+            // Adds event listeners and handlers for utility functions
+            clearBtn.addEventListener('click', clearEvent);
+            undoBtn.addEventListener('click', undoEvent);
+            doneBtn.addEventListener('click', doneEvent);
+        }
+    }
+
+    function initWaiting() {
+        // show waiting message
+        waiting.style.display = 'block';
+    }
+
+    function hideWaiting() {
+        // hide waiting message
+        waiting.style.display = 'none';
+    }
+
+    // listen for messages from the server
+    function liveRecv(data) {
+        var completed = Object.keys(data).includes('completed') && data.completed === true;
+        var is_drawer = Object.keys(data).includes('drawer') && data.drawer === true;
+        var has_drawing = Object.keys(data).includes('drawing') && data.drawing !== null && data.drawing !== "";
+        var drawing_contents = has_drawing ? data.drawing : null;
+        var event = Object.keys(data).includes('event') ? data.event : null;
+        var stims = Object.keys(data).includes('stims') ? data.stims : [];
+        var selected_stim = Object.keys(data).includes('selected_stim') ? data.selected_stim : '';
+
+        switch (event) {
+            case 'init':
+                reset();
+                // if we are the person drawing and we haven't said we're finished
+                if (is_drawer && !completed) {
+                    displayStimuli(stims, selected_stim);
+                    initCanvas();
+                    if (has_drawing) Helper.importSVG(drawer, drawing_contents);
+                // if we're the responder and the drawing has been completed
+                } else if (!is_drawer && completed) {
+                    // here we will show the response options and the drawing (readonly)
+                    displayStimuli(stims, selected_stim);
+                    initCanvas(false, true);
+                    if (has_drawing) Helper.importSVG(drawer, data.drawing);
+                } else {
+                    initWaiting();
+                }
+                break;
+            case 'drawing_complete':
+                // if we are the drawer, we should show the waiting message
+                if (is_drawer) {
+                    reset();
+                    initWaiting();
+                } else {
+                    // if we are the responder, we should show the drawing
+                    hideWaiting();
+                    displayStimuli(stims, selected_stim);
+                    initCanvas(false, true);
+                    if (has_drawing) Helper.importSVG(drawer, data.drawing);
+                }
+                break;
+
+        }
+    }
+
+
+
+    document.addEventListener("DOMContentLoaded", (event) => {
+        // send a message to the server to indicate that the page is ready
+        liveSend({'event': 'init'});
+    });
 </script>

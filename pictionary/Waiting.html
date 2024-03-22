@@ -18,17 +18,5 @@ Round {{ subsession.round_number }}
     </div>
 </div>
 
-<script>
-    function liveRecv(data) {
-        console.log('data', data)
-        if (data.finished) {
-            document.getElementById("form").submit();
-        }
-    }
-
-    document.addEventListener("DOMContentLoaded", (event) => {
-        liveSend({'type': 'wait_page'});
-    });
-</script>
 
 {{ endblock }}

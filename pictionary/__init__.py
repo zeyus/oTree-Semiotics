@@ -1,8 +1,9 @@
 from sqlalchemy.ext.declarative import DeclarativeMeta  # type: ignore
-from otree.api import BaseConstants, BaseSubsession, BaseGroup, BasePlayer, models, Page  # type: ignore
+from otree.api import BaseConstants, BaseSubsession, BaseGroup, BasePlayer, models, Page, ExtraModel, WaitPage  # type: ignore
 from .stims import PHASES
 from json import dumps as json_dumps, loads as json_loads
 from random import shuffle, randint
+import base64
 
 
 doc = """
@@ -35,209 +36,225 @@ class C(BaseConstants):
         1,
     ]
     # technichally not constants, but still deterministic
-    NUM_PHASE_ROUNDS = [x * y for x, y in zip(NUM_PHASE_STIMS, PHASE_STIM_REPEATS)]
-    # set this to the max, we stop early if we run out of rounds
-    NUM_ROUNDS = max(NUM_PHASE_ROUNDS) + NUM_PRACTICE_ROUNDS
+    NUM_PHASE_TRIALS = [x * y for x, y in zip(NUM_PHASE_STIMS, PHASE_STIM_REPEATS)]
+    # We can't repeat the app so we need to use the rounds as phases
+    NUM_ROUNDS = 3
 
 
 class Subsession(BaseSubsession, metaclass=AnnotationFreeMeta):
-    is_practice_round: bool = models.BooleanField()
-    real_round_number: int = models.IntegerField()
-    stim: str = models.StringField(initial="")
-    concepts: str = models.LongStringField(initial="")
+    phase: int = models.IntegerField()
+    stim_order: str = models.LongStringField(initial="[]")
+    current_trial: int = models.IntegerField(initial=1)
 
 
 class Player(BasePlayer, metaclass=AnnotationFreeMeta):
-    choice: int = models.IntegerField()
+    pass
 
 
 class Group(BaseGroup, metaclass=AnnotationFreeMeta):
-    wait_for_ids: str = models.LongStringField(initial="[]")
-    arrived_ids: str = models.LongStringField(initial="[]")
+    pass
+
+
+class PictionaryDrawing(ExtraModel):
+    svg = models.LongStringField(initial="")
+    completed = models.BooleanField(initial=False)
+
+
+class PictionaryResponse(ExtraModel):
+    response = models.StringField(initial="")
+    correct = models.BooleanField(initial=False)
+    completed = models.BooleanField(initial=False)
+
+
+class PictionaryTrial(ExtraModel):
+    subsess = models.Link(Subsession)
+    drawing = models.Link(PictionaryDrawing)
+    response = models.Link(PictionaryResponse)
+    drawer = models.Link(Player)
+    responder = models.Link(Player)
+    stim = models.StringField()
+    concepts = models.LongStringField()
+    trial = models.IntegerField()
+    phase = models.IntegerField()
+
+
+
 
 
 # runs on each round
 def creating_session(subsession: Subsession):
-    # not yet implemented
-    subsession.is_practice_round = subsession.round_number <= C.NUM_PRACTICE_ROUNDS
-    # get the real round number
-    if not subsession.is_practice_round:
-        subsession.real_round_number = subsession.round_number - C.NUM_PRACTICE_ROUNDS
-
     players: list[Player] = subsession.get_players()
-    # set the starting phase and player, this will only happen once
-    if (
-        "current_phase" not in subsession.session.vars
-        or subsession.session.vars["current_phase"] is None
-    ):
-        print("Initialising phase 0")
-        subsession.session.vars["current_phase"] = 0
-        # pick a starting player
-        shuffle(players)
-        for i, player in enumerate(players):
-            player.participant.vars["starting_player"] = i == 0
-            print(f"Player {i} is starting player: {player.participant.vars['starting_player']}")
-            # initialize the drawings_completed field
-            player.participant.vars["drawings_completed"] = 0
-
-    # if the stim list is empty, we need to load the stims, this also will only happen once
-    if (
-        "stim_order" not in subsession.session.vars
-        or subsession.session.vars["stim_order"] is None
-    ):
-        print("Loading stimuli and randomizing order")
-        # load the stims and randomize for all phases
-        stims = []
-        for i, phase in enumerate(PHASES):
-            phase_stims = phase * C.PHASE_STIM_REPEATS[i]
-            shuffle(phase_stims)
-            stims.append(phase_stims)
-
-        subsession.session.vars["stim_order"] = stims
-    
-    # get the current stim
-    current_stim = None
-    try:
-        current_stim = subsession.session.vars["stim_order"][subsession.session.vars["current_phase"]].pop()
-        subsession.stim = current_stim[0]
-        subsession.concepts = ", ".join(current_stim[1])
-        print (f"Phase {subsession.session.vars['current_phase']+1} Stim added: {subsession.stim}, Concepts: {subsession.concepts}")
-    except IndexError:
-        subsession.stim = ""
-        subsession.concepts = ""
-        print("No more stimuli for this phase")
+    print(f"Loading stimuli and randomizing order for round {subsession.round_number}")
+    # load the stims and randomize for all phases
+    phase_stims = PHASES[subsession.round_number - 1] * C.PHASE_STIM_REPEATS[subsession.round_number - 1]
+    shuffle(phase_stims)
+    subsession.stim_order = json_dumps(phase_stims)
+    # Prepare all the rounds
+    drawing_player = randint(0, 1)
+    print(f"Creating trials for phase {subsession.round_number}")
+    for trial, stim in enumerate(phase_stims):
+        print(f"{trial + 1}...", end="")
+        # create the round
+        PictionaryTrial().create(
+            subsess = subsession,
+            drawing = PictionaryDrawing().create(),
+            response = PictionaryResponse().create(),
+            stim = stim[0],
+            concepts = json_dumps(stim[1]),
+            phase = subsession.round_number,
+            drawer = players[drawing_player],
+            responder = players[1 - drawing_player],
+            trial = trial + 1,
+        )
+        # flip the drawing player
+        drawing_player = 1 - drawing_player
+    print("done")
 
 
-
-
-def unarrived_players(group: Group):
-    return set(json_loads(group.wait_for_ids)) - set(json_loads(group.arrived_ids))
-
-
-def wait_page_live_method(player: Player, data):
-    group = player.group
-
-    arrived_ids_set = set(json_loads(group.arrived_ids))
-    arrived_ids_set.add(player.id_in_subsession)
-    group.arrived_ids = json_dumps(list(arrived_ids_set))
-
-    if not unarrived_players(group):
-        return {0: dict(finished=True)}
-
-
+# returns the partner of the player
 def get_partner(player: Player):
     return player.get_others_in_group()[0]
 
 
-class Welcome(Page):
+# PAGES
+class ExperimentWelcome(Page):
     @staticmethod
     def is_displayed(player: Player):
-        # only show the welcome page on the first round of the first phase
-        return player.round_number == 1 and player.session.vars["current_phase"] == 0
+        # only show the welcome page on the first round of the FIRST phase
+        return player.round_number == 1 and player.subsession.round_number == 1
+
+class PhaseInstructions(Page):
+    @staticmethod
+    def is_displayed(player: Player):
+        # show the instrunctions on the first round of EACH phase
+        return player.round_number == 1
 
 
-class Instructions(Page):
+class Waiting(WaitPage):
     pass
 
 
-class Waiting(Page):
+class ExperimentThankYou(Page):
     @staticmethod
     def is_displayed(player: Player):
-        group = player.group
-        # first time
-        if not json_loads(group.wait_for_ids):
-            wait_for_ids = [p.id_in_subsession for p in group.get_players()]
-            group.wait_for_ids = json_dumps(wait_for_ids)
-        return unarrived_players(group)
-
-    @staticmethod
-    def live_method(player: Player, data):
-        if data.get("type") == "wait_page":
-            return wait_page_live_method(player, data)
-
-    @staticmethod
-    def error_message(player: Player, values):
-        group = player.group
-        if unarrived_players(group):
-            return "Wait page not finished"
-
-
-class ThankYou(Page):
-    @staticmethod
-    def is_displayed(player: Player):
-        return player.session.vars["current_phase"] == 2
+        return player.subsession.round_number == C.NUM_ROUNDS
 
 # determine if the current player is the drawer without messing up the data
-def is_drawer(player: Player):
-    return (
-            player.participant.vars["starting_player"] and player.subsession.round_number % 2 == 1
-        ) or (
-            not player.participant.vars["starting_player"] and player.subsession.round_number % 2 == 0
-        )
+def is_drawer(player: Player, trial: PictionaryTrial):
+    return player.id_in_group == trial.drawer.id_in_group
 
-class Selecting(Page):
-    @staticmethod
-    def is_displayed(player: Player):
-        return not is_drawer(player)
 
-    @staticmethod
-    def vars_for_template(player: Player):
-        return dict(
-            stim=player.subsession.stim,
-        )
-class RoundComplete(Page):
+def is_last_round(player: Player):
+    return player.subsession.round_number == C.NUM_ROUNDS
+
+def get_current_trial(player: Player) -> PictionaryTrial:
+    print(player.subsession, player.subsession.current_trial, player.subsession.round_number)
+    return PictionaryTrial.filter(subsess=player.subsession, trial=player.subsession.current_trial)[0]
+
+
+def get_stim_list(player: Player):
+    stims = PHASES[player.subsession.round_number - 1]
+    # we only need the first element of each stim
+    return [stim[0] for stim in stims]
+
+class PhaseComplete(Page):
     pass
 
-
-# PAGES
 class Drawing(Page):
-    @staticmethod
+    # @staticmethod
     # def is_displayed(player: Player):
     #     return is_drawer(player)
 
     @staticmethod
     def before_next_page(player, timeout_happened):
-        player.participant.vars["drawings_completed"] += 1
+        pass
 
     @staticmethod
     def vars_for_template(player: Player):
-        partner = get_partner(player)
-        my_partner_previous = partner.in_all_rounds()
-        my_previous_partners = [
-            get_partner(me_prev) for me_prev in player.in_all_rounds()
-        ]
-
         return dict(
-            partner=partner,
-            my_partner_previous=my_partner_previous,
-            my_previous_partners=my_previous_partners,
-            current_phase=player.session.vars["current_phase"] + 1,
-            stim=player.subsession.stim,
-            is_drawer=is_drawer(player),
+            current_phase=player.subsession.round_number,
+            stims=PHASES[player.subsession.round_number - 1],
             blur=player.session.config.get("blur", True),
             live_draw=player.session.config.get("live_draw", True),
         )
 
     @staticmethod
     def live_method(player, data):
-        if is_drawer(player):
-            print('received drawing from ', player.id_in_group, ':', data)
-            if player.session.config.get("live_draw", True):
-                # send the drawing to the partner
-                partner = get_partner(player)
-                return {partner.id_in_group: dict(drawing=data)}
-        else:
-            print('received answer from ', player.id_in_group, ':', data)
+        trial = get_current_trial(player)
+        drawing_player = is_drawer(player, trial)
+        selected_stim = ""
+        stim_list = get_stim_list(player)
+        if drawing_player:
+            selected_stim = trial.stim
+            
+        if "event" in data:
+            if data["event"] == "init":
+                print("received init from ", player.id_in_group)
+                return {
+                    player.id_in_group: dict(
+                        event='init',
+                        drawer=drawing_player,
+                        # this allows recovery / in case of browser reload
+                        drawing=base64.b64encode(trial.drawing.svg.encode('utf-8')).decode('utf-8'),
+                        completed=trial.drawing.completed,
+                        stims=stim_list,
+                        selected_stim=selected_stim,
+                    )
+                }
+            elif data["event"] == "update":
+                if drawing_player:
+                    print("updating drawing for ", player.id_in_group)
+                    trial.drawing.svg = base64.b64decode(data["drawing"]).decode('utf-8')
+            elif data["event"] == "drawing_complete":
+                if drawing_player:
+                    partner = get_partner(player)
+                    print("received drawing from ", player.id_in_group)
+                    trial.drawing.svg = base64.b64decode(data["drawing"]).decode('utf-8')
+                    trial.drawing.completed = True
+                    return {
+                        partner.id_in_group: dict(
+                            event='drawing_complete',
+                            drawer=False,
+                            drawing=data["drawing"],
+                            completed = True,
+                            stims=get_stim_list(player),
+                        )}
+            elif data["event"] == "stimulus_selected": # just a click, not the "completed" event
+                if not drawing_player:
+                    print(f"received stimulus selection ({data['stim']}) from {player.id_in_group}")
+                    trial.stim = data["stim"]
+                    
+            elif data["event"] == "response_complete":
+                if not drawing_player:
+                    print(f"received response from {player.id_in_group}")
+                    trial.response.response = data["stim"]
+                    trial.response.correct = data["stim"] == trial.stim
+                    trial.response.completed = True
+                    return {
+                        0: dict(
+                            event='show_response',
+                            response=data["response"],
+                            correct=data["correct"],
+                            stims=get_stim_list(player),
+                            completed=True,
+                        )
+                    }
+                    
+                # print('received drawing from ', player.id_in_group, ':', data)
+                # if player.session.config.get("live_draw", True):
+                #     # send the drawing to the partner
+                #     partner = get_partner(player)
+                #     return {partner.id_in_group: dict(drawing=data)}
+
             
 
 
 page_sequence = [
-    Welcome,
-    Instructions,
+    ExperimentWelcome,
+    PhaseInstructions,
     Waiting,
+    # this page will repeat for the number of rounds in each phase
     Drawing,
-    # let's have both on the drawing page just use "is_drawer" to determine which to show
-    # Selecting,
-    RoundComplete,
-    ThankYou,
+    PhaseComplete,
+    ExperimentThankYou,
 ]
