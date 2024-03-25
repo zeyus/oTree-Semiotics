@@ -48,7 +48,8 @@ class Subsession(BaseSubsession, metaclass=AnnotationFreeMeta):
 
 
 class Player(BasePlayer, metaclass=AnnotationFreeMeta):
-    pass
+    ready = models.BooleanField(initial=False)
+    
 
 
 class Group(BaseGroup, metaclass=AnnotationFreeMeta):
@@ -88,7 +89,7 @@ def creating_session(subsession: Subsession):
     # load the stims and randomize for all phases
     phase_stims = PHASES[subsession.round_number - 1] * C.PHASE_STIM_REPEATS[subsession.round_number - 1]
     shuffle(phase_stims)
-    subsession.stim_order = json_dumps(phase_stims)
+    subsession.stim_order = ", ".join([stim[0] for stim in phase_stims])
     # Prepare all the rounds
     drawing_player = randint(0, 1)
     print(f"Creating trials for phase {subsession.round_number}")
@@ -100,7 +101,7 @@ def creating_session(subsession: Subsession):
             drawing = PictionaryDrawing().create(),
             response = PictionaryResponse().create(),
             stim = stim[0],
-            concepts = json_dumps(stim[1]),
+            concepts = ", ".join(stim[1]),
             phase = subsession.round_number,
             drawer = players[drawing_player],
             responder = players[1 - drawing_player],
@@ -145,7 +146,7 @@ def is_drawer(player: Player, trial: PictionaryTrial):
 
 
 def is_last_round(player: Player):
-    return player.subsession.round_number == C.NUM_ROUNDS
+    return player.subsession.current_trial > C.NUM_PHASE_TRIALS[player.subsession.round_number - 1]
 
 def get_current_trial(player: Player) -> PictionaryTrial:
     print(player.subsession, player.subsession.current_trial, player.subsession.round_number)
@@ -176,17 +177,16 @@ class Drawing(Page):
             stims=PHASES[player.subsession.round_number - 1],
             blur=player.session.config.get("blur", True),
             live_draw=player.session.config.get("live_draw", True),
+            num_trials=C.NUM_PHASE_TRIALS[player.subsession.round_number - 1]
         )
 
     @staticmethod
     def live_method(player, data):
         trial = get_current_trial(player)
         drawing_player = is_drawer(player, trial)
-        selected_stim = ""
+        correct_stim = ""
         stim_list = get_stim_list(player)
-        if drawing_player:
-            selected_stim = trial.stim
-            
+        correct_stim = trial.stim
         if "event" in data:
             if data["event"] == "init":
                 print("received init from ", player.id_in_group)
@@ -197,8 +197,13 @@ class Drawing(Page):
                         # this allows recovery / in case of browser reload
                         drawing=base64.b64encode(trial.drawing.svg.encode('utf-8')).decode('utf-8'),
                         completed=trial.drawing.completed,
+                        response_completed=trial.response.completed,
+                        response_correct=trial.response.correct,
+                        response=trial.response.response,
                         stims=stim_list,
-                        selected_stim=selected_stim,
+                        correct_stim=correct_stim if drawing_player or trial.response.completed else '',
+                        ready=player.ready,
+                        trial_id=player.subsession.current_trial,
                     )
                 }
             elif data["event"] == "update":
@@ -222,29 +227,42 @@ class Drawing(Page):
             elif data["event"] == "stimulus_selected": # just a click, not the "completed" event
                 if not drawing_player:
                     print(f"received stimulus selection ({data['stim']}) from {player.id_in_group}")
-                    trial.stim = data["stim"]
+                    trial.response.response = data["stim"]
                     
             elif data["event"] == "response_complete":
                 if not drawing_player:
-                    print(f"received response from {player.id_in_group}")
-                    trial.response.response = data["stim"]
-                    trial.response.correct = data["stim"] == trial.stim
+                    print(f"received response from {player.id_in_group}: response={data['response']}, correct_stim={correct_stim}")
+                    trial.response.response = data["response"]
+                    trial.response.correct = data["response"] == trial.stim
                     trial.response.completed = True
                     return {
                         0: dict(
                             event='show_response',
-                            response=data["response"],
-                            correct=data["correct"],
+                            response=trial.response.response,
+                            correct=trial.response.correct,
                             stims=get_stim_list(player),
+                            correct_stim=correct_stim,
                             completed=True,
                         )
                     }
+            elif data["event"] == "continue":
+                # this is when both players have reviewed the response
+                # and are ready to continue to the next trial
+                if trial.response.completed and trial.drawing.completed:
+                    partner = get_partner(player)
+                    player.ready = True
+                    if partner.ready:
+                        player.subsession.current_trial += 1
+                        player.ready = False
+                        partner.ready = False
+                        return {
+                            0: dict(
+                                event='continue',
+                                phase_complete=is_last_round(player),
+                            )
+                        }
+                        
                     
-                # print('received drawing from ', player.id_in_group, ':', data)
-                # if player.session.config.get("live_draw", True):
-                #     # send the drawing to the partner
-                #     partner = get_partner(player)
-                #     return {partner.id_in_group: dict(drawing=data)}
 
             
 
@@ -258,3 +276,27 @@ page_sequence = [
     PhaseComplete,
     ExperimentThankYou,
 ]
+
+
+# Define the custom export function to get the drawing and trial information
+def custom_export(players):
+    yield ["session", "drawer", "responder", "phase", "trial", "stim", "concepts", "response", "correct", "response_completed", "drawing_completed", "svg", "stim_order"]
+
+    trials = PictionaryTrial.filter()
+
+    for trial in trials:
+        yield [
+            trial.subsess.session.code if trial.subsess else "N/A",
+            trial.drawer.participant.code,
+            trial.responder.participant.code,
+            trial.phase,
+            trial.trial,
+            trial.stim,
+            trial.concepts,
+            trial.response.response if trial.response else "N/A",
+            trial.response.correct if trial.response else "N/A",
+            trial.response.completed if trial.response else "N/A",
+            trial.drawing.completed if trial.drawing else "N/A",
+            trial.drawing.svg if trial.drawing else "N/A",
+            trial.subsess.stim_order if trial.subsess else "N/A",
+        ]

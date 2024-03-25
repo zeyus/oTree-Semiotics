@@ -4,7 +4,6 @@
         margin-right: auto;
         width: 800px; /* EDIT TO CHANGE WIDTH */
         position: relative;
-        display: none;
     }
 
     #canvas button {
@@ -16,7 +15,7 @@
         border-radius: 5px;
         margin: 0 0 20px 0;
         box-shadow: 5px 5px 5px rgb(51, 51, 51);
-
+        position: relative;
     }
 
     #canvas .svgElement {
@@ -24,6 +23,7 @@
         display: block;
         width: 100%;
         height: 600px; /* EDIT TO CHANGE HEIGHT */
+        white-space: pre;
     }
 
     #canvas .loading-spinner {
@@ -31,7 +31,6 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        display: none;
     }
     #canvas .loading-spinner .spinner-border {
         width: 300px;
@@ -44,16 +43,8 @@
         text-align: center;
         font-size: 30px;
     }
-    .drawing-buttons {
-        display: none;
-    }
-    #waiting {
-        display: none;
-    }
-    #done {
-        display:none;
-    }
-    #select {
+    /** Hide elements until we are ready */
+    #canvas, #canvas .loading-spinner, .drawing-buttons, #waiting, #done, #select, #continue {
         display:none;
     }
 </style>
@@ -70,6 +61,7 @@
         </div>
     </div>
 </div>
+<div id="stim-container"></div>
 <div id="canvas">
     <div class="drawing-buttons">
         <!-- button with icon -->
@@ -109,7 +101,7 @@
         </div>
     </div>
     <div class="svgContainer">
-        <svg xmlns="http://www.w3.org/2000/svg" class="svgElement" x="0px" y="0px" xml:space="preserve"></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" class="svgElement" x="0px" y="0px" viewBox="0 0 800 600"></svg>
     </div>
     <div class="loading-spinner">
         <div class="spinner-border text-primary" role="status">
@@ -119,27 +111,46 @@
     </div>
     <input type="hidden" name="drawing" class="drawing" />
 </div>
-<div id="stim-container"></div>
 <button type="button" id="done" class="btn btn-primary">Done</button>
 <button type="button" id="select" class="btn btn-primary">Select</button>
+<button type="button" id="continue" class="btn btn-primary">Continue</button>
 <script src="{{ static 'drawer.js' }}"></script>
 <script>
+
+    const trialIdEl = document.getElementById('trial-id');
+    // const numTrialsEl = document.getElementById('num-trials');
+    // Containers
     const containerEl = document.getElementById('canvas');
     const svgContainer = document.getElementsByClassName('svgContainer').item(0);
     const buttonContainer = document.getElementsByClassName('drawing-buttons').item(0);
+    const stimContainer = document.getElementById('stim-container');
+    
+    // Waiting page / spinner
     const waiting = document.getElementById('waiting');
+
+    // Buttons
     const clearBtn = document.getElementById('clearButton');
     const undoBtn = document.getElementById('undoButton');
     const doneBtn = document.getElementById('done');
     const selectBtn = document.getElementById('select');
-    const stimContainer = document.getElementById('stim-container');
+    const continueBtn = document.getElementById('continue');
 
+    // SVG element and hidden input
     var SVGelement = document.getElementsByClassName('svgElement').item(0);
     var drawing = document.getElementsByClassName('drawing').item(0);
-    
-    var drawer;
-    
 
+    // Drawer object
+    var drawer;
+
+
+    /**
+     * Clones a node and replaces it with the clone
+     * 
+     * @param {Node} oldNode - The node to clone
+     * @param {Node} parentNode - The parent node of the node to clone
+     * @param {boolean} deep - Whether to clone the children of the node
+     * @returns {Node} - The new node
+     */
     function cloneAndResetNode(oldNode, parentNode, deep = false) {
         var newNode = oldNode.cloneNode(deep);
         parentNode.replaceChild(newNode, oldNode);
@@ -173,73 +184,148 @@
             'event': 'stimulus_selected',
             'stim': e.target.value
         });
+        // enable the done button
+        selectBtn.disabled = false;
     }
 
     function doneSelectEvent(e) {
         e.preventDefault();
         liveSend({
             'event': 'response_complete',
-            'stim': document.querySelector('input[name="stimulus"]:checked').value
+            'response': document.querySelector('input[name="stimulus"]:checked').value
         });
         // show waiting message
         reset();
         initWaiting();
     }
 
-    function displayStimuli(stims, selected = '') {
+    function continueEvent(e) {
+        e.preventDefault();
+        liveSend({
+            'event': 'continue'
+        });
+        // show waiting message
+        reset();
+        initWaiting();
+    }
+
+    function displayStimuli(stims, correct='', selected = '') {
         // clear the container
         stimContainer.innerHTML = '';
+        const disabled = correct !== '';
+        const n_cols = stims.length > 12 ? 4 : 2;
+        const response_correct = selected !== '' && correct === selected;
+        stimContainer.classList.add('row', 'row-cols-' + n_cols);
+        console.log("correct", correct, "selected", selected, "response_correct", response_correct)
         // create a new div for each stimulus
         stims.forEach((stim, i) => {
             var div = document.createElement('div');
             var input = document.createElement('input');
             var label = document.createElement('label');
-            div.classList.add('stimulus');
+            const stim_correct = correct !== '' && correct === stim;
+            const stim_selected = selected !== '' && selected === stim;
+
+            div.classList.add('stimulus', 'col');
             input.type = 'radio';
             input.name = 'stimulus';
+            input.autocomplete = 'off';
+            input.classList.add('btn-check');
+            
             input.value = stim;
             input.id = 'stim' + i;
-            if (stim === selected) {
-                input.checked = true;
-            }
             label.htmlFor = 'stim' + i;
             label.innerText = stim;
+            label.classList.add('w-100', 'mb-2', 'btn');
+
+            if (disabled) { // either for the drawer of summary
+                input.disabled = true;
+                if (!stim_correct) {
+                    if (stim_selected) {
+                        label.classList.add('btn-danger');
+                        // force opacitiy 1
+                        label.style.opacity = 1;
+                        // make border thicker
+                        label.style.borderWidth = '3px';
+                        // border black
+                        label.style.borderColor = 'black';
+                        input.checked = true;
+                    } else {
+                        label.classList.add('btn-outline-secondary');
+                    }
+                } else {
+                    label.classList.add('btn-success');
+                    // force opacitiy 1
+                    label.style.opacity = 1;
+                    label.style.borderWidth = '3px';
+                    if (stim_selected) {
+                        label.style.borderColor = 'black';
+                        input.checked = true;
+                    } else {
+                        label.style.borderColor = '#004400';
+                        // dashed border
+                        label.style.borderStyle = 'dashed';
+                    }
+                    
+                }
+                
+            } else { // this is for the responder
+                input.addEventListener('change', selectEvent);
+                label.classList.add('btn-outline-primary');
+            }
+
+            
             div.appendChild(input);
             div.appendChild(label);
-            input.addEventListener('change', selectEvent);
             stimContainer.appendChild(div);
         });
-        selectBtn.addEventListener('click', doneSelectEvent);
-        selectBtn.style.display = 'block';
+        // show the done button, if we are the responder
+        if (correct === '') {
+            selectBtn.addEventListener('click', doneSelectEvent);
+            selectBtn.style.display = 'block';
+            selectBtn.disabled = true;
+        } else if (selected !== '') {
+            continueBtn.addEventListener('click', continueEvent);
+            continueBtn.style.display = 'block';
+        }
+    }
+
+    function hideAndRemoveEvent(element, fn, event = 'click') {
+        element.style.display = 'none';
+        element.removeEventListener(event, fn);
     }
 
     function reset() {
+        // hide canvas
+        containerEl.style.display = 'none';
+        // remove stimuli
+        stimContainer.innerHTML = '';
         // hide waiting message
-        waiting.style.display = 'none';
+        hideWaiting();
         // hide buttons
         buttonContainer.style.display = 'none';
-        doneBtn.style.display = 'none';
-        selectBtn.style.display = 'none';
-        // hide SVG element
-        containerEl.style.display = 'none';
+        hideAndRemoveEvent(doneBtn, doneEvent);
+        hideAndRemoveEvent(clearBtn, clearEvent);
+        hideAndRemoveEvent(undoBtn, undoEvent);
+        hideAndRemoveEvent(selectBtn, doneSelectEvent);
+        hideAndRemoveEvent(continueBtn, continueEvent);
+
         // shallow clone to remove event listeners
         SVGelement = cloneAndResetNode(SVGelement, svgContainer);
         drawing = cloneAndResetNode(drawing, containerEl);
-        // remove the event listeners if they exist for clear and undo
-        clearBtn.removeEventListener('click', clearEvent);
-        undoBtn.removeEventListener('click', undoEvent);
-        doneBtn.removeEventListener('click', doneEvent);
-        selectBtn.removeEventListener('click', doneSelectEvent);
-    }
 
+    }
 
 
     function initCanvas(update = true, readOnly = false){
         // Creates a new drawer object using the SVG element
         console.log("setting up drawer");
         // show buttons
-        if (!readOnly) buttonContainer.style.display = 'block';
-        if (!readOnly) doneBtn.style.display = 'block';
+        if (!readOnly) {
+            buttonContainer.style.display = 'block';
+            doneBtn.style.display = 'block';
+            clearBtn.style.display = 'block';
+            undoBtn.style.display = 'block';
+        }
         // show SVG element
         containerEl.style.display = 'block';
     
@@ -272,30 +358,45 @@
 
     // listen for messages from the server
     function liveRecv(data) {
-        var completed = Object.keys(data).includes('completed') && data.completed === true;
-        var is_drawer = Object.keys(data).includes('drawer') && data.drawer === true;
-        var has_drawing = Object.keys(data).includes('drawing') && data.drawing !== null && data.drawing !== "";
-        var drawing_contents = has_drawing ? data.drawing : null;
-        var event = Object.keys(data).includes('event') ? data.event : null;
-        var stims = Object.keys(data).includes('stims') ? data.stims : [];
-        var selected_stim = Object.keys(data).includes('selected_stim') ? data.selected_stim : '';
+        const completed = Object.keys(data).includes('completed') && data.completed === true;
+        const is_drawer = Object.keys(data).includes('drawer') && data.drawer === true;
+        const has_drawing = Object.keys(data).includes('drawing') && data.drawing !== null && data.drawing !== "";
+        const drawing_contents = has_drawing ? data.drawing : null;
+        const event = Object.keys(data).includes('event') ? data.event : null;
+        const stims = Object.keys(data).includes('stims') ? data.stims : [];
+        const correct_stim = Object.keys(data).includes('correct_stim') ? data.correct_stim : '';
+        const response = Object.keys(data).includes('response') ? data.response : '';
+        const response_correct = Object.keys(data).includes('response_correct') ? data.response_correct : false;
+        const response_completed = Object.keys(data).includes('response_completed') ? data.response_completed : false;
+        const player_ready = Object.keys(data).includes('player_ready') ? data.player_ready : false;
+        const trial_id = Object.keys(data).includes('trial_id') ? data.trial_id : 0;
+        const phase_complete = Object.keys(data).includes('phase_complete') ? data.phase_complete : false;
+        // const num_trials = Object.keys(data).includes('num_trials') ? data.num_trials : 0;
 
         switch (event) {
             case 'init':
                 reset();
+                trialIdEl.innerText = trial_id;
+                // numTrialsEl.innerText = num_trials;
                 // if we are the person drawing and we haven't said we're finished
                 if (is_drawer && !completed) {
-                    displayStimuli(stims, selected_stim);
+                    displayStimuli(stims, correct_stim);
                     initCanvas();
                     if (has_drawing) Helper.importSVG(drawer, drawing_contents);
                 // if we're the responder and the drawing has been completed
-                } else if (!is_drawer && completed) {
+                } else if (!is_drawer && completed && !response_completed) {
                     // here we will show the response options and the drawing (readonly)
-                    displayStimuli(stims, selected_stim);
+                    displayStimuli(stims, correct_stim);
                     initCanvas(false, true);
                     if (has_drawing) Helper.importSVG(drawer, data.drawing);
                 } else {
-                    initWaiting();
+                    if (!response_completed || player_ready) {
+                        initWaiting();
+                    } else {
+                        // both players can reveiw the results
+                        console.log("reviewing results", correct_stim, response, response_correct);
+                        displayStimuli(stims, correct_stim, response);
+                    }
                 }
                 break;
             case 'drawing_complete':
@@ -306,12 +407,25 @@
                 } else {
                     // if we are the responder, we should show the drawing
                     hideWaiting();
-                    displayStimuli(stims, selected_stim);
+                    displayStimuli(stims, correct_stim);
                     initCanvas(false, true);
                     if (has_drawing) Helper.importSVG(drawer, data.drawing);
                 }
                 break;
-
+            case 'show_response':
+                // both players get to see the results
+                hideWaiting();
+                displayStimuli(stims, correct_stim, response);
+                break;
+            case 'continue':
+                // players have both reviewed and now start the next trial
+                if (!phase_complete) {
+                    liveSend({'event': 'init'});
+                } else {
+                    // submit the form to move to the next page
+                    document.getElementById('form').submit();
+                }
+                break;
         }
     }
 

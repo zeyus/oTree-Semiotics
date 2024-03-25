@@ -58,6 +58,8 @@ class Drawer {
      * @param {MouseEvent} e The event object
      */
     startDraw(e) {
+        // update bounding rect in case of resize
+        this.#rect = this.#SVGElement.getBoundingClientRect();
         this.#path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         this.#path.setAttribute("fill", "none");
         this.#path.setAttribute("stroke", this.#pathColor);
@@ -184,9 +186,12 @@ class Drawer {
      */
     #getMousePosition(e) {
         return {
-            x: e.pageX - this.#rect.left,
-            y: e.pageY - this.#rect.top
-        }
+            // this previous logic is broken if the viewport is smaller than the canvas or is scrolled
+            // x: e.pageX - this.#rect.left,
+            // y: e.pageY - this.#rect.top
+            x: e.clientX - this.#rect.left,
+            y: e.clientY - this.#rect.top
+        };
     }
 
     /**
