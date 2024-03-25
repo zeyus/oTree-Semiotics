@@ -153,10 +153,13 @@ def get_current_trial(player: Player) -> PictionaryTrial:
     return PictionaryTrial.filter(subsess=player.subsession, trial=player.subsession.current_trial)[0]
 
 
-def get_stim_list(player: Player):
+def get_stim_list(player: Player, randomize=False):
     stims = PHASES[player.subsession.round_number - 1]
     # we only need the first element of each stim
-    return [stim[0] for stim in stims]
+    stims = [stim[0] for stim in stims]
+    if randomize:
+        shuffle(stims)
+    return stims
 
 class PhaseComplete(Page):
     pass
@@ -185,7 +188,7 @@ class Drawing(Page):
         trial = get_current_trial(player)
         drawing_player = is_drawer(player, trial)
         correct_stim = ""
-        stim_list = get_stim_list(player)
+        stim_list = get_stim_list(player, True)
         correct_stim = trial.stim
         if "event" in data:
             if data["event"] == "init":
@@ -222,7 +225,7 @@ class Drawing(Page):
                             drawer=False,
                             drawing=data["drawing"],
                             completed = True,
-                            stims=get_stim_list(player),
+                            stims=stim_list,
                         )}
             elif data["event"] == "stimulus_selected": # just a click, not the "completed" event
                 if not drawing_player:
@@ -240,7 +243,7 @@ class Drawing(Page):
                             event='show_response',
                             response=trial.response.response,
                             correct=trial.response.correct,
-                            stims=get_stim_list(player),
+                            stims=stim_list,
                             correct_stim=correct_stim,
                             completed=True,
                         )
