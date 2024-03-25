@@ -122,18 +122,13 @@ class ExperimentWelcome(Page):
     @staticmethod
     def is_displayed(player: Player):
         # only show the welcome page on the first round of the FIRST phase
-        return player.round_number == 1 and player.subsession.round_number == 1
+        return player.subsession.round_number == 1
 
 class PhaseInstructions(Page):
-    @staticmethod
-    def is_displayed(player: Player):
-        # show the instrunctions on the first round of EACH phase
-        return player.round_number == 1
-
+    pass
 
 class Waiting(WaitPage):
     pass
-
 
 class ExperimentThankYou(Page):
     @staticmethod
@@ -264,10 +259,6 @@ class Drawing(Page):
                                 phase_complete=is_last_round(player),
                             )
                         }
-                        
-                    
-
-            
 
 
 page_sequence = [
