@@ -293,7 +293,7 @@ page_sequence = [
     Waiting,
     # this page will repeat for the number of rounds in each phase
     Drawing,
-    PhaseComplete,
+    # PhaseComplete, # this is no longer needed
     ExperimentThankYou,
 ]
 
