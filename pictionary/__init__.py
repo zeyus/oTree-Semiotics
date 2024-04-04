@@ -4,10 +4,11 @@ from .stims import PHASES
 from json import dumps as json_dumps, loads as json_loads
 from random import shuffle, randint
 import base64
+import datetime
 
 
 doc = """
-... Description of the game
+Paired drawing task where one player draws a concept and the other player guesses the concept.
 """
 
 
@@ -39,6 +40,8 @@ class C(BaseConstants):
     NUM_PHASE_TRIALS = [x * y for x, y in zip(NUM_PHASE_STIMS, PHASE_STIM_REPEATS)]
     # We can't repeat the app so we need to use the rounds as phases
     NUM_ROUNDS = 3
+    # Time limit for drawing
+    DRAWING_TIME = 120
 
 
 class Subsession(BaseSubsession, metaclass=AnnotationFreeMeta):
@@ -59,6 +62,8 @@ class Group(BaseGroup, metaclass=AnnotationFreeMeta):
 class PictionaryDrawing(ExtraModel):
     svg = models.LongStringField(initial="")
     completed = models.BooleanField(initial=False)
+    drawing_time = models.FloatField(initial=0.0)
+    start_timestamp = models.FloatField(initial=0.0)
 
 
 class PictionaryResponse(ExtraModel):
@@ -188,6 +193,13 @@ class Drawing(Page):
         if "event" in data:
             if data["event"] == "init":
                 print("received init from ", player.id_in_group)
+                if drawing_player and not trial.drawing.completed:
+                    # start the drawing timer
+                    if trial.drawing.start_timestamp == 0.0:
+                        trial.drawing.start_timestamp = datetime.datetime.now().timestamp()
+                    trial.drawing.drawing_time = datetime.datetime.now().timestamp() - trial.drawing.start_timestamp
+                    print("drawing time: ", trial.drawing.drawing_time)
+                    print("time left: ", C.DRAWING_TIME - trial.drawing.drawing_time)
                 return {
                     player.id_in_group: dict(
                         event='init',
@@ -202,6 +214,7 @@ class Drawing(Page):
                         correct_stim=correct_stim if drawing_player or trial.response.completed else '',
                         ready=player.ready,
                         trial_id=player.subsession.current_trial,
+                        time_left=C.DRAWING_TIME - trial.drawing.drawing_time, # will be 120 at the start as Drawing.drawing_time starts at 0
                     )
                 }
             elif data["event"] == "update":
@@ -210,6 +223,7 @@ class Drawing(Page):
                     trial.drawing.svg = base64.b64decode(data["drawing"]).decode('utf-8')
             elif data["event"] == "drawing_complete":
                 if drawing_player:
+                    trial.drawing.drawing_time = datetime.datetime.now().timestamp() - trial.drawing.start_timestamp
                     partner = get_partner(player)
                     print("received drawing from ", player.id_in_group)
                     trial.drawing.svg = base64.b64decode(data["drawing"]).decode('utf-8')
@@ -259,6 +273,18 @@ class Drawing(Page):
                                 phase_complete=is_last_round(player),
                             )
                         }
+            elif data["event"] == "get_remaining_time":
+                if drawing_player:
+                    # start the drawing timer (it should be started already, but just in case)
+                    if trial.drawing.start_timestamp == 0.0:
+                        trial.drawing.start_timestamp = datetime.datetime.now().timestamp()
+                    trial.drawing.drawing_time = datetime.datetime.now().timestamp() - trial.drawing.start_timestamp
+                return {
+                    player.id_in_group: dict(
+                        event='remaining_time',
+                        time_left=C.DRAWING_TIME - trial.drawing.drawing_time,
+                    )
+                }
 
 
 page_sequence = [
@@ -274,7 +300,7 @@ page_sequence = [
 
 # Define the custom export function to get the drawing and trial information
 def custom_export(players):
-    yield ["session", "drawer", "responder", "phase", "trial", "stim", "concepts", "response", "correct", "response_completed", "drawing_completed", "svg", "stim_order"]
+    yield ["session", "drawer", "responder", "phase", "trial", "stim", "concepts", "response", "correct", "response_completed", "drawing_completed", "drawing_time", "svg", "stim_order"]
 
     trials = PictionaryTrial.filter()
 
@@ -291,6 +317,7 @@ def custom_export(players):
             trial.response.correct if trial.response else "N/A",
             trial.response.completed if trial.response else "N/A",
             trial.drawing.completed if trial.drawing else "N/A",
+            trial.drawing.drawing_time if trial.drawing else "N/A",
             trial.drawing.svg if trial.drawing else "N/A",
             trial.subsess.stim_order if trial.subsess else "N/A",
         ]

@@ -6,9 +6,9 @@
         position: relative;
     }
 
-    #canvas button {
+    /* #canvas button {
         margin: 0 5px;
-    }
+    } */
     #canvas .svgContainer {
         background-color: white; /* EDIT TO CHANGE BACKGROUND COLOR */
         border: 2px solid black;
@@ -44,7 +44,7 @@
         font-size: 30px;
     }
     /** Hide elements until we are ready */
-    #canvas, #canvas .loading-spinner, .drawing-buttons, #waiting, #done, #select, #continue {
+    #canvas, #canvas .loading-spinner, .drawing-buttons, #waiting, #done, #select, #continue, #timeout-warning {
         display:none;
     }
 </style>
@@ -61,45 +61,36 @@
         </div>
     </div>
 </div>
-<div id="stim-container"></div>
+<div class="container">
+    <div id="stim-container" class="container"></div>
+    <div class="d-flex justify-content-end mb-4">
+        <button type="button" id="select" class="btn btn-primary">Select</button>
+        <button type="button" id="continue" class="btn btn-primary">Continue</button>
+    </div>
+</div>
 <div id="canvas">
-    <div class="drawing-buttons">
-        <!-- button with icon -->
-        <button type="button" data-bs-toggle="modal" data-bs-target="#clearDrawing" class="btn btn-danger">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
-                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
-            </svg>
-            Reset
-        </button>
-        <button type="button" id="undoButton" class="undoButton btn btn-warning">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"/>
-                <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"/>
-            </svg>
-            Undo
-        </button>
-        <!-- Modal -->
-        <div class="modal fade" id="clearDrawing" tabindex="-1" role="dialog" aria-labelledby="clearDrawingLabel" aria-hidden="true">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                    <h5 class="modal-title" id="clearDrawingLabel">Are you sure?</h5>
-                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                    </div>
-                    <div class="modal-body">
-                        Please confirm you would like to clear the current drawing and reset to a blank canvas.
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, this was a mistake</button>
-                        <button type="button" id="clearButton" class="clearButton btn btn-danger" data-bs-dismiss="modal">Yes, please clear</button>
-                    </div>
+    <!-- Modal -->
+    <div class="modal fade" id="clearDrawing" tabindex="-1" role="dialog" aria-labelledby="clearDrawingLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h5 class="modal-title" id="clearDrawingLabel">Are you sure?</h5>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>
+                <div class="modal-body">
+                    Please confirm you would like to clear the current drawing and reset to a blank canvas.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, this was a mistake</button>
+                    <button type="button" id="clearButton" class="clearButton btn btn-danger" data-bs-dismiss="modal">Yes, please clear</button>
                 </div>
             </div>
         </div>
     </div>
+    <!-- /Modal -->
+
     <div class="svgContainer">
         <svg xmlns="http://www.w3.org/2000/svg" class="svgElement" x="0px" y="0px" viewBox="0 0 800 600"></svg>
     </div>
@@ -111,9 +102,34 @@
     </div>
     <input type="hidden" name="drawing" class="drawing" />
 </div>
-<button type="button" id="done" class="btn btn-primary">Done</button>
-<button type="button" id="select" class="btn btn-primary">Select</button>
-<button type="button" id="continue" class="btn btn-primary">Continue</button>
+<div class="drawing-buttons container">
+    <div class="row">
+        <div class="col-3 d-flex gap-2">
+            <button type="button" data-bs-toggle="modal" style="height:38px" data-bs-target="#clearDrawing" class="btn btn-danger">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                </svg>
+                Reset
+            </button>
+            <button type="button" id="undoButton" style="height:38px" class="undoButton btn btn-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"/>
+                </svg>
+                Undo
+            </button>
+        </div>
+        <div class="col-6 d-flex justify-content-center">
+            <div id="timeout-warning" class="alert alert-warning" role="alert">
+                <strong>Note:</strong> You have <span id="time-left"></span> seconds left to finish drawing.
+            </div>
+        </div>
+        <div class="col-3 justify-content-end d-flex">
+            <button type="button" id="done" style="height:38px" class="align-self-right btn btn-primary">Done</button>
+        </div>
+    </div>
+</div>
 <script src="{{ static 'drawer.js' }}"></script>
 <script>
 
@@ -127,6 +143,9 @@
     
     // Waiting page / spinner
     const waiting = document.getElementById('waiting');
+
+    // timeout warning
+    const timeoutWarning = document.getElementById('timeout-warning');
 
     // Buttons
     const clearBtn = document.getElementById('clearButton');
@@ -171,7 +190,19 @@
         e.preventDefault();
         liveSend({
             'event': 'drawing_complete',
-            'drawing': drawing.value
+            'drawing': drawing.value,
+            'timeout': false
+        });
+        // show waiting message
+        reset();
+        initWaiting();
+    }
+
+    function drawingTimeout() {
+        liveSend({
+            'event': 'drawing_complete',
+            'drawing': drawing.value,
+            'timeout': true
         });
         // show waiting message
         reset();
@@ -225,7 +256,7 @@
             const stim_correct = correct !== '' && correct === stim;
             const stim_selected = selected !== '' && selected === stim;
 
-            div.classList.add('stimulus', 'col');
+            div.classList.add('stimulus', 'col', 'align-self-center');
             input.type = 'radio';
             input.name = 'stimulus';
             input.autocomplete = 'off';
@@ -301,6 +332,8 @@
         stimContainer.innerHTML = '';
         // hide waiting message
         hideWaiting();
+        // hide timeout warning
+        timeoutWarning.style.display = 'none';
         // hide buttons
         buttonContainer.style.display = 'none';
         hideAndRemoveEvent(doneBtn, doneEvent);
@@ -329,7 +362,7 @@
         // show SVG element
         containerEl.style.display = 'block';
     
-        drawer = new Drawer(SVGelement, {hiddenElement: drawing, readOnly: readOnly});
+        drawer = new Drawer(SVGelement, {hiddenElement: drawing, readOnly: readOnly, strokeWidth: 8});
         if (update && !readOnly) {
             drawing.addEventListener('change', (e) => {
                 liveSend({
@@ -356,6 +389,25 @@
         waiting.style.display = 'none';
     }
 
+    // set up a timeout
+    var timeLeft;
+
+    function initTimeout(time, showWarningAt = 15) {
+        timeleft = time;
+        const interval = setInterval(() => {
+            timeLeft -= 1;
+            if (timeLeft <= 0) {
+                clearInterval(interval);
+                drawingTimeout();
+            } else {
+                if (timeLeft <= showWarningAt) {
+                    timeoutWarning.style.display = 'block';
+                    timeoutWarning.querySelector('#time-left').innerText = Math.round(timeLeft);
+                }
+            }
+        }, 1000);
+    }
+
     // listen for messages from the server
     function liveRecv(data) {
         const completed = Object.keys(data).includes('completed') && data.completed === true;
@@ -371,6 +423,7 @@
         const player_ready = Object.keys(data).includes('player_ready') ? data.player_ready : false;
         const trial_id = Object.keys(data).includes('trial_id') ? data.trial_id : 0;
         const phase_complete = Object.keys(data).includes('phase_complete') ? data.phase_complete : false;
+        const time_left = Object.keys(data).includes('time_left') ? data.time_left : 0;
         // const num_trials = Object.keys(data).includes('num_trials') ? data.num_trials : 0;
 
         switch (event) {
@@ -380,9 +433,16 @@
                 // numTrialsEl.innerText = num_trials;
                 // if we are the person drawing and we haven't said we're finished
                 if (is_drawer && !completed) {
+                    if (time_left <= 0) {
+                        drawingTimeout();
+                        break;
+                    }
+                    timeLeft = time_left;
+                    initTimeout(timeLeft);
                     displayStimuli(stims, correct_stim);
                     initCanvas();
                     if (has_drawing) Helper.importSVG(drawer, drawing_contents);
+
                 // if we're the responder and the drawing has been completed
                 } else if (!is_drawer && completed && !response_completed) {
                     // here we will show the response options and the drawing (readonly)
@@ -425,6 +485,9 @@
                     // submit the form to move to the next page
                     document.getElementById('form').submit();
                 }
+                break;
+            case 'remaining_time':
+                timeLeft = data.time_left;
                 break;
         }
     }
