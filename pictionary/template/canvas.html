@@ -396,9 +396,18 @@
         hideAndRemoveEvent(selectBtn, doneSelectEvent);
         hideAndRemoveEvent(continueBtn, continueEvent);
 
+        
         // shallow clone to remove event listeners
         SVGelement = cloneAndResetNode(SVGelement, svgContainer);
+        SVGelement.innerHTML = '';
+        // clear the SVG element
+        if (drawer !== undefined && drawer !== null) {
+            // remove drawer
+            drawer = null;
+        }
+        // remove drawing
         drawing = cloneAndResetNode(drawing, containerEl);
+        drawing.value = '';
 
     }
 
@@ -554,6 +563,7 @@
                     showPromptText('response');
                     displayStimuli(stims, correct_stim);
                     initCanvas(false, true);
+                    console.log("importing drawing", has_drawing);
                     if (has_drawing) Helper.importSVG(drawer, data.drawing);
                 } else {
                     if (!response_completed || player_ready) {
@@ -573,11 +583,17 @@
                     initWaiting();
                 } else {
                     // if we are the responder, we should show the drawing
+                    reset();
                     hideWaiting();
                     showPromptText('response');
                     displayStimuli(stims, correct_stim);
                     initCanvas(false, true);
-                    if (has_drawing) Helper.importSVG(drawer, data.drawing);
+                    if (has_drawing) {
+                        Helper.importSVG(drawer, data.drawing);
+                    } else {
+                        console.log("no drawing to import");
+                        Helper.clearSVG(drawer);
+                    }
                 }
                 break;
             case 'show_response':
