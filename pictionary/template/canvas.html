@@ -199,6 +199,7 @@
     }
 
     function drawingTimeout() {
+        cancelTimeout();
         liveSend({
             'event': 'drawing_complete',
             'drawing': drawing.value,
@@ -326,7 +327,9 @@
     }
 
     function reset() {
+        cancelTimeout();
         // hide canvas
+        console.log("resetting");
         containerEl.style.display = 'none';
         // remove stimuli
         stimContainer.innerHTML = '';
@@ -379,13 +382,23 @@
         }
     }
 
+    var interval = null;
+
+    function cancelTimeout() {
+        if (interval !== null) {
+            clearInterval(interval);
+            interval = null;
+        }
+    }
     function initWaiting() {
         // show waiting message
+        cancelTimeout();
         waiting.style.display = 'block';
     }
 
     function hideWaiting() {
         // hide waiting message
+        cancelTimeout();
         waiting.style.display = 'none';
     }
 
@@ -394,10 +407,26 @@
 
     function initTimeout(time, showWarningAt = 15) {
         timeleft = time;
-        const interval = setInterval(() => {
+        console.log("init timeout", time);
+        if (timeleft <= 0) {
+            drawingTimeout();
+            return;
+        } else if (timeleft <= showWarningAt) {
+            timeoutWarning.style.display = 'block';
+            timeoutWarning.querySelector('#time-left').innerText = Math.round(timeleft);
+        } else {
+            timeoutWarning.style.display = 'none';
+        }
+        if (interval !== null) {
+            clearInterval(interval);
+            interval = null;
+        }
+        interval = setInterval(() => {
             timeLeft -= 1;
             if (timeLeft <= 0) {
+                console.log("timeout");
                 clearInterval(interval);
+                interval = null;
                 drawingTimeout();
             } else {
                 if (timeLeft <= showWarningAt) {
@@ -425,7 +454,7 @@
         const phase_complete = Object.keys(data).includes('phase_complete') ? data.phase_complete : false;
         const time_left = Object.keys(data).includes('time_left') ? data.time_left : 0;
         // const num_trials = Object.keys(data).includes('num_trials') ? data.num_trials : 0;
-
+        console.log("received event", event);
         switch (event) {
             case 'init':
                 reset();
@@ -485,6 +514,14 @@
                     // submit the form to move to the next page
                     document.getElementById('form').submit();
                 }
+                break;
+            case 'continue_wait':
+                // show waiting message
+                initWaiting();
+                // try again in 1 second
+                setTimeout(() => {
+                    liveSend({'event': 'continue'});
+                }, 1000);
                 break;
             case 'remaining_time':
                 timeLeft = data.time_left;

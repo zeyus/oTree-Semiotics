@@ -45,46 +45,45 @@ class C(BaseConstants):
 
 
 class Subsession(BaseSubsession, metaclass=AnnotationFreeMeta):
-    phase: int = models.IntegerField()
-    stim_order: str = models.LongStringField(initial="[]")
-    current_trial: int = models.IntegerField(initial=1)
+    pass
 
 
 class Player(BasePlayer, metaclass=AnnotationFreeMeta):
-    ready = models.BooleanField(initial=False)
+    ready: bool = models.BooleanField(initial=False)  # type: ignore
     
 
 
 class Group(BaseGroup, metaclass=AnnotationFreeMeta):
-    pass
+    phase: int = models.IntegerField()
+    stim_order: str = models.LongStringField(initial="[]")  # type: ignore
+    current_trial: int = models.IntegerField(initial=1)  # type: ignore
 
 
 class PictionaryDrawing(ExtraModel):
-    svg = models.LongStringField(initial="")
-    completed = models.BooleanField(initial=False)
-    drawing_time = models.FloatField(initial=0.0)
-    start_timestamp = models.FloatField(initial=0.0)
+    svg = models.LongStringField(initial="")  # type: ignore
+    completed = models.BooleanField(initial=False)  # type: ignore
+    drawing_time = models.FloatField(initial=0.0)  # type: ignore
+    start_timestamp = models.FloatField(initial=0.0)  # type: ignore
 
 
 class PictionaryResponse(ExtraModel):
-    response = models.StringField(initial="")
-    correct = models.BooleanField(initial=False)
-    completed = models.BooleanField(initial=False)
+    response = models.StringField(initial="")  # type: ignore
+    correct = models.BooleanField(initial=False)  # type: ignore
+    completed = models.BooleanField(initial=False)  # type: ignore
 
 
-class PictionaryTrial(ExtraModel):
-    subsess = models.Link(Subsession)
-    drawing = models.Link(PictionaryDrawing)
-    response = models.Link(PictionaryResponse)
-    drawer = models.Link(Player)
-    responder = models.Link(Player)
-    stim = models.StringField()
-    concepts = models.LongStringField()
-    trial = models.IntegerField()
-    phase = models.IntegerField()
-
-
-
+class PictionaryTrial(ExtraModel, metaclass=AnnotationFreeMeta):
+    subsess: Subsession = models.Link(Subsession)
+    group: Group = models.Link(Group)
+    drawing: PictionaryDrawing = models.Link(PictionaryDrawing)
+    response: PictionaryResponse = models.Link(PictionaryResponse)
+    drawer: Player = models.Link(Player)
+    responder: Player = models.Link(Player)
+    stim: str = models.StringField()
+    concepts: str = models.LongStringField()
+    trial: int = models.IntegerField()
+    phase: int = models.IntegerField()
+    completed: bool = models.BooleanField(initial=False)  # type: ignore
 
 
 # runs on each round
@@ -93,27 +92,32 @@ def creating_session(subsession: Subsession):
     print(f"Loading stimuli and randomizing order for round {subsession.round_number}")
     # load the stims and randomize for all phases
     phase_stims = PHASES[subsession.round_number - 1] * C.PHASE_STIM_REPEATS[subsession.round_number - 1]
-    shuffle(phase_stims)
-    subsession.stim_order = ", ".join([stim[0] for stim in phase_stims])
-    # Prepare all the rounds
-    drawing_player = randint(0, 1)
-    print(f"Creating trials for phase {subsession.round_number}")
-    for trial, stim in enumerate(phase_stims):
-        print(f"{trial + 1}...", end="")
-        # create the round
-        PictionaryTrial().create(
-            subsess = subsession,
-            drawing = PictionaryDrawing().create(),
-            response = PictionaryResponse().create(),
-            stim = stim[0],
-            concepts = ", ".join(stim[1]),
-            phase = subsession.round_number,
-            drawer = players[drawing_player],
-            responder = players[1 - drawing_player],
-            trial = trial + 1,
-        )
-        # flip the drawing player
-        drawing_player = 1 - drawing_player
+
+    groups = subsession.get_groups()
+    for group in groups:
+        shuffle(phase_stims)
+        group.stim_order = ", ".join([stim[0] for stim in phase_stims])
+        # Prepare all the rounds
+        drawing_player = randint(0, 1)
+        print(f"Creating trials for phase {subsession.round_number}")
+        for trial, stim in enumerate(phase_stims):
+            print(f"{trial + 1}...", end="")
+            # create the round
+            PictionaryTrial().create(
+                subsess = subsession,
+                group = group,
+                drawing = PictionaryDrawing().create(),
+                response = PictionaryResponse().create(),
+                stim = stim[0],
+                concepts = ", ".join(stim[1]),
+                phase = subsession.round_number,
+                drawer = players[drawing_player],
+                responder = players[1 - drawing_player],
+                trial = trial + 1,
+                completed = False,
+            )
+            # flip the drawing player
+            drawing_player = 1 - drawing_player
     print("done")
 
 
@@ -145,12 +149,14 @@ def is_drawer(player: Player, trial: PictionaryTrial):
     return player.id_in_group == trial.drawer.id_in_group
 
 
-def is_last_round(player: Player):
-    return player.subsession.current_trial > C.NUM_PHASE_TRIALS[player.subsession.round_number - 1]
+def is_phase_complete(player: Player):
+    complete = player.group.current_trial > C.NUM_PHASE_TRIALS[player.subsession.round_number - 1]
+    print("is phase complete", complete)
+    return complete
 
 def get_current_trial(player: Player) -> PictionaryTrial:
-    print(player.subsession, player.subsession.current_trial, player.subsession.round_number)
-    return PictionaryTrial.filter(subsess=player.subsession, trial=player.subsession.current_trial)[0]
+    print("getting current trial", player.group.current_trial)
+    return PictionaryTrial.filter(group=player.group, subsess=player.subsession, trial=player.group.current_trial)[0]
 
 
 def get_stim_list(player: Player, randomize=False):
@@ -165,13 +171,13 @@ class PhaseComplete(Page):
     pass
 
 class Drawing(Page):
-    # @staticmethod
-    # def is_displayed(player: Player):
-    #     return is_drawer(player)
+    @staticmethod
+    def is_displayed(player: Player):
+        return not is_phase_complete(player)
 
     @staticmethod
-    def before_next_page(player, timeout_happened):
-        pass
+    def before_next_page(player, timeout_happened = False):
+        player.ready = False
 
     @staticmethod
     def vars_for_template(player: Player):
@@ -185,12 +191,32 @@ class Drawing(Page):
 
     @staticmethod
     def live_method(player, data):
+        # If the phase is complete the player needs to
+        if is_phase_complete(player):
+            return {
+                player.id_in_group: dict(
+                    event='continue',
+                    phase_complete=True,
+                )
+            }
+        
         trial = get_current_trial(player)
+
+        # if the trial is complete, we need to move on
+        # but if we are here we know the phase is not complete
+        if trial.completed:
+            return {
+                player.id_in_group: dict(
+                    event='continue',
+                    phase_complete=False,
+                )
+            }
         drawing_player = is_drawer(player, trial)
         correct_stim = ""
         stim_list = get_stim_list(player, True)
         correct_stim = trial.stim
         if "event" in data:
+            print("received event from ", player.id_in_group, data["event"])
             if data["event"] == "init":
                 print("received init from ", player.id_in_group)
                 if drawing_player and not trial.drawing.completed:
@@ -213,7 +239,7 @@ class Drawing(Page):
                         stims=stim_list,
                         correct_stim=correct_stim if drawing_player or trial.response.completed else '',
                         ready=player.ready,
-                        trial_id=player.subsession.current_trial,
+                        trial_id=player.group.current_trial,
                         time_left=C.DRAWING_TIME - trial.drawing.drawing_time, # will be 120 at the start as Drawing.drawing_time starts at 0
                     )
                 }
@@ -260,17 +286,26 @@ class Drawing(Page):
             elif data["event"] == "continue":
                 # this is when both players have reviewed the response
                 # and are ready to continue to the next trial
+                # we have already checked earlier if the phase or trial is complete
                 if trial.response.completed and trial.drawing.completed:
                     partner = get_partner(player)
                     player.ready = True
                     if partner.ready:
-                        player.subsession.current_trial += 1
+                        player.group.current_trial += 1
                         player.ready = False
                         partner.ready = False
+                        trial.completed = True
                         return {
                             0: dict(
                                 event='continue',
-                                phase_complete=is_last_round(player),
+                                phase_complete=is_phase_complete(player),
+                            )
+                        }
+                    else:
+                        return {
+                            player.id_in_group: dict(
+                                event='continue_wait',
+                                phase_complete=is_phase_complete(player),
                             )
                         }
             elif data["event"] == "get_remaining_time":
@@ -319,5 +354,5 @@ def custom_export(players):
             trial.drawing.completed if trial.drawing else "N/A",
             trial.drawing.drawing_time if trial.drawing else "N/A",
             trial.drawing.svg if trial.drawing else "N/A",
-            trial.subsess.stim_order if trial.subsess else "N/A",
+            trial.group.stim_order if trial.group else "N/A",
         ]

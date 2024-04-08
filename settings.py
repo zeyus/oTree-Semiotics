@@ -2,31 +2,20 @@ from os import environ
 
 SESSION_CONFIGS = [
     dict(
-        name='pictionary_live_drawing',
+        name='pictionary',
         app_sequence=[
             'pictionary',
         ],
-        num_demo_participants=2,
-        live_draw=True,
-        blur=True,
-    ),
-    dict(
-        name='pictionary_live_drawing_no_blur',
-        app_sequence=[
-            'pictionary',
-        ],
-        num_demo_participants=2,
-        live_draw=True,
-        blur=False,
-    ),
-    dict(
-        name='pictionary_wait_for_complete',
-        app_sequence=[
-            'pictionary',
-        ],
-        num_demo_participants=2,
+        num_demo_participants=4,
         live_draw=False,
         blur=False,
+    ),
+]
+
+ROOMS = [
+    dict(
+        name='test_room',
+        display_name='Test'
     ),
 ]
 
@@ -56,4 +45,4 @@ ADMIN_PASSWORD = environ.get('OTREE_ADMIN_PASSWORD')
 
 SECRET_KEY = '1705882164517'
 
-DEBUG = True
+DEBUG = False
