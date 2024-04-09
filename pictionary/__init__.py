@@ -1,5 +1,7 @@
 from sqlalchemy.ext.declarative import DeclarativeMeta  # type: ignore
 from otree.api import BaseConstants, BaseSubsession, BaseGroup, BasePlayer, models, Page, ExtraModel, WaitPage  # type: ignore
+from otree.models import Participant  # type: ignore
+from otree.common import expand_choice_tuples  # type: ignore
 from .stims import PHASES
 from json import dumps as json_dumps, loads as json_loads
 from random import shuffle, randint
@@ -50,8 +52,66 @@ class Subsession(BaseSubsession, metaclass=AnnotationFreeMeta):
 
 class Player(BasePlayer, metaclass=AnnotationFreeMeta):
     ready: bool = models.BooleanField(initial=False)  # type: ignore
-    
+    age = models.IntegerField(
+        label='Your age',
+        min=18, max=99)
+    gender = models.IntegerField(
+        label='Your gender',
+        choices=[
+            [0, 'Prefer not to say'],
+            [1, 'Female'],
+            [2, 'Male'],
+            [3, 'Non-binary'],
+            [4, 'Other']
+        ]
+    )
+    native_language = models.StringField(
+        label='What is your native language?',
+        choices=[
+            'Danish',
+            'English',
+            'French',
+            'German',
+            'Spanish',
+            'Swedish',
+            'Other'
+        ]
+    )
+    language_other = models.StringField(
+        label='If you selected "Other", please specify:',
+        blank=True
+    )
 
+    # post experiment survey
+    # in your drawings, how did you represent/distinguish between:
+    # - I/you?
+    # - Present tense/past tense?
+    # - Could/should?
+
+    i_you = models.LongStringField(
+        label='In your drawings, how did you represent/distinguish between "I" and "you"?'
+    )
+    present_past = models.LongStringField(
+        label='In your drawings, how did you represent/distinguish between present and past tense?'
+    )
+    could_should = models.LongStringField(
+        label='In your drawings, how did you represent/distinguish between "could" and "should"?'
+    )
+
+    # workaround / hack for previous values that don't exist
+    def field_display(self, name):
+        value = getattr(self, name)
+        target = self.get_user_defined_target()
+        choices_func = getattr(target, name + '_choices', None)
+        if choices_func:
+            choices = choices_func(self)
+        else:
+            choices = getattr(type(self), name).form_props['choices']
+        choice_dict = dict(expand_choice_tuples(choices))
+        try:
+            return choice_dict[value]
+        except KeyError:
+            return "N/A"
 
 class Group(BaseGroup, metaclass=AnnotationFreeMeta):
     phase: int = models.IntegerField()
@@ -128,10 +188,51 @@ def get_partner(player: Player):
 
 # PAGES
 class ExperimentWelcome(Page):
+    form_model = 'player'
+    form_fields = ['age', 'gender', 'native_language', 'language_other']
     @staticmethod
     def is_displayed(player: Player):
         # only show the welcome page on the first round of the FIRST phase
         return player.subsession.round_number == 1
+
+
+class PostExperimentSurvey(Page):
+    form_model = 'player'
+    form_fields = ['i_you', 'present_past', 'could_should']
+    @staticmethod
+    def is_displayed(player: Player):
+        # only show the survey at the end of the last last phase
+        return player.subsession.round_number == C.NUM_ROUNDS
+    
+    @staticmethod
+    def before_next_page(player: Player, timeout_happened):
+        # add the post experiment survey data to all all arounds
+        # hacky but it works
+        
+        # round one has demographic data, but post experiment survey
+        r1p = player.in_round(1)
+
+        # round 2 player has neither
+        r2p = player.in_round(2)
+
+        r1p.i_you = player.i_you
+        r1p.present_past = player.present_past
+        r1p.could_should = player.could_should
+        
+        r2p.age = r1p.age
+        r2p.gender = r1p.gender
+        r2p.native_language = r1p.native_language
+        r2p.language_other = r1p.language_other
+        r2p.i_you = player.i_you
+        r2p.present_past = player.present_past
+        r2p.could_should = player.could_should
+
+        # round 3 player has no demographic data, but post experiment survey
+        player.age = r1p.age
+        player.gender = r1p.gender
+        player.native_language = r1p.native_language
+        player.language_other = r1p.language_other
+        
 
 class PhaseInstructions(Page):
     pass
@@ -327,15 +428,44 @@ page_sequence = [
     PhaseInstructions,
     Waiting,
     # this page will repeat for the number of rounds in each phase
-    Drawing,
+    #Drawing,
     # PhaseComplete, # this is no longer needed
+    PostExperimentSurvey,
     ExperimentThankYou,
 ]
 
 
 # Define the custom export function to get the drawing and trial information
 def custom_export(players):
-    yield ["session", "drawer", "responder", "phase", "trial", "stim", "concepts", "response", "correct", "response_completed", "drawing_completed", "drawing_time", "svg", "stim_order"]
+    yield [
+        "session",
+        "drawer",
+        "responder",
+        "phase",
+        "trial",
+        "stim",
+        "concepts",
+        "response",
+        "correct",
+        "response_completed",
+        "drawing_completed",
+        "drawing_time",
+        "svg",
+        "stim_order",
+        # survey data
+        "age_draw",
+        "gender_draw",
+        "native_language_draw",
+        "language_other_draw",
+        "i_you_draw",
+        "present_past_draw",
+        "could_should_draw",
+        "age_resp",
+        "gender_resp",
+        "native_language_resp",
+        "language_other_resp",
+        "i_you_resp",
+    ]
 
     trials = PictionaryTrial.filter()
 
@@ -355,4 +485,17 @@ def custom_export(players):
             trial.drawing.drawing_time if trial.drawing else "N/A",
             trial.drawing.svg if trial.drawing else "N/A",
             trial.group.stim_order if trial.group else "N/A",
+            # survey data
+            trial.drawer.age,
+            trial.drawer.field_display('gender'),
+            trial.drawer.native_language,
+            trial.drawer.language_other,
+            trial.drawer.i_you,
+            trial.drawer.present_past,
+            trial.drawer.could_should,
+            trial.responder.age,
+            trial.responder.field_display('gender'),
+            trial.responder.native_language,
+            trial.responder.language_other,
+            trial.responder.i_you,
         ]

@@ -4,8 +4,14 @@ Investigating the Emergence of Grammatical Concepts in Proto-writing
 
 {{ block content }}
     <div class="container">
-        <p>Welcome, when you are ready, please continue to the next page for further instructions.</p>
+        <p>Welcome, when you are ready, please answer the questions below, then continue to the next page for further instructions.</p>
     </div>
-{{ next_button }}
-
+    <div class="container">
+        {{ formfield 'age' }}
+        {{ formfield 'gender' }}
+        {{ formfield 'native_language' }}
+        {{ formfield 'language_other' }}
+        
+        {{ next_button }}
+    </div>
 {{ endblock }}

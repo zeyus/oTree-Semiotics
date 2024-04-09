@@ -1,0 +1,16 @@
+{{ block title }}
+Post experiment survey
+{{ endblock }}
+
+{{ block content }}
+    <div class="container">
+        <p>Please answer the following questions about the experiment you just completed.</p>
+    </div>
+    <div class="container">
+        {{ formfield 'i_you' }}
+        {{ formfield 'present_past' }}
+        {{ formfield 'could_should' }}
+        
+        {{ next_button }}
+    </div>
+{{ endblock }}

@@ -44,8 +44,18 @@
         font-size: 30px;
     }
     /** Hide elements until we are ready */
-    #canvas, #canvas .loading-spinner, .drawing-buttons, #waiting, #done, #select, #continue, #timeout-warning {
+    #canvas, #canvas .loading-spinner, .drawing-buttons, #waiting, #done, #select, #continue, #timeout-warning, #drawing-instructions, #prompt-stim, #_otree-title {
         display:none;
+    }
+
+    #form {
+        margin-top:10px;
+    }
+
+    @media (min-width: 1200px) {
+        #drawing-area {
+            margin-left: -10%;
+        }
     }
 </style>
 <div id="waiting" class="container">
@@ -62,74 +72,106 @@
     </div>
 </div>
 <div class="container">
-    <div id="stim-container" class="container"></div>
-    <div class="d-flex justify-content-end mb-4">
-        <button type="button" id="select" class="btn btn-primary">Select</button>
-        <button type="button" id="continue" class="btn btn-primary">Continue</button>
-    </div>
-</div>
-<div id="canvas">
-    <!-- Modal -->
-    <div class="modal fade" id="clearDrawing" tabindex="-1" role="dialog" aria-labelledby="clearDrawingLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                <h5 class="modal-title" id="clearDrawingLabel">Are you sure?</h5>
-                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-                </div>
-                <div class="modal-body">
-                    Please confirm you would like to clear the current drawing and reset to a blank canvas.
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, this was a mistake</button>
-                    <button type="button" id="clearButton" class="clearButton btn btn-danger" data-bs-dismiss="modal">Yes, please clear</button>
-                </div>
+    <div class="card mb-4" id="prompt-stim">
+        <h5 id="prompt-text-draw" class="card-header">Draw the text indicated in green</h5>
+        <h5 id="prompt-text-response" class="card-header">Select the text that best represents the drawing</h5>
+        <h5 id="prompt-text-review" class="card-header">Results</h5>
+        <div class="card-body">
+            <div id="stim-container"></div>
+            <div class="d-flex justify-content-end">
+                <button type="button" id="select" class="btn btn-primary">Select</button>
+                <button type="button" id="continue" class="btn btn-primary">Continue</button>
             </div>
         </div>
     </div>
-    <!-- /Modal -->
+</div>
 
-    <div class="svgContainer">
-        <svg xmlns="http://www.w3.org/2000/svg" class="svgElement" x="0px" y="0px" viewBox="0 0 800 600"></svg>
-    </div>
-    <div class="loading-spinner">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Waiting...</span>
-        </div>
-        <div class="waiting-text">Waiting for other player...</div>
-    </div>
-    <input type="hidden" name="drawing" class="drawing" />
-</div>
-<div class="drawing-buttons container">
-    <div class="row">
-        <div class="col-3 d-flex gap-2">
-            <button type="button" data-bs-toggle="modal" style="height:38px" data-bs-target="#clearDrawing" class="btn btn-danger">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
-                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
-                </svg>
-                Reset
+<!-- Modal -->
+<div class="modal fade" id="clearDrawing" tabindex="-1" role="dialog" aria-labelledby="clearDrawingLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+            <h5 class="modal-title" id="clearDrawingLabel">Are you sure?</h5>
+            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
             </button>
-            <button type="button" id="undoButton" style="height:38px" class="undoButton btn btn-warning">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"/>
-                    <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"/>
-                </svg>
-                Undo
-            </button>
-        </div>
-        <div class="col-6 d-flex justify-content-center">
-            <div id="timeout-warning" class="alert alert-warning" role="alert">
-                <strong>Note:</strong> You have <span id="time-left"></span> seconds left to finish drawing.
+            </div>
+            <div class="modal-body">
+                Please confirm you would like to clear the current drawing and reset to a blank canvas.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, this was a mistake</button>
+                <button type="button" id="clearButton" class="clearButton btn btn-danger" data-bs-dismiss="modal">Yes, please clear</button>
             </div>
         </div>
-        <div class="col-3 justify-content-end d-flex">
-            <button type="button" id="done" style="height:38px" class="align-self-right btn btn-primary">Done</button>
+    </div>
+</div>
+<!-- /Modal -->
+<!-- make two columns left with instructions, right with svgContainer (needs to be min 600w + padding) -->
+<div class="container" id="drawing-area">
+    <div class="row">
+        <div class="col-xl-4">
+            <div class="card mb-4 border-secondary" id="drawing-instructions">
+                <h5 class="card-header">Instructions</h5>
+                <div class="card-body text-secondary">
+                    <p>In your drawings you are <strong>not</strong> allowed to use:</p>
+                    <ul>
+                        <li>Letters (e.g. A, B, a, b)</li>
+                        <li>Numbers (e.g. 1, 2, 3)</li>
+                        <li>Other conventional symbols (e.g. !, ?, &, #)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-8">
+            <div id="canvas">
+                <div class="svgContainer">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="svgElement" x="0px" y="0px" viewBox="0 0 800 600"></svg>
+                </div>
+                <input type="hidden" name="drawing" class="drawing" />
+                <div class="loading-spinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Waiting...</span>
+                    </div>
+                    <div class="waiting-text">Waiting for other player...</div>
+                </div>
+                <div class="drawing-buttons">
+                    <div class="row">
+                        <div class="col-3 d-flex gap-2">
+                            <button type="button" data-bs-toggle="modal" style="height:38px" data-bs-target="#clearDrawing" class="btn btn-danger">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                                </svg>
+                                Reset
+                            </button>
+                            <button type="button" id="undoButton" style="height:38px" class="undoButton btn btn-warning">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"/>
+                                    <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"/>
+                                </svg>
+                                Undo
+                            </button>
+                        </div>
+                        <div class="col-6 d-flex justify-content-center">
+                            <div id="timeout-warning" class="alert alert-warning" role="alert">
+                                <strong>Note:</strong> You have <span id="time-left"></span> seconds left to finish drawing.
+                            </div>
+                        </div>
+                        <div class="col-3 justify-content-end d-flex">
+                            <button type="button" id="done" style="height:38px" class="align-self-right btn btn-primary">Done</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+
+
+
+<div class="h2 text-secondary mt-4">Phase {{ current_phase }}, round <span id="trial-id"></span> of <span id="num-trials">{{ num_trials }}</span></div>
 <script src="{{ static 'drawer.js' }}"></script>
 <script>
 
@@ -140,6 +182,11 @@
     const svgContainer = document.getElementsByClassName('svgContainer').item(0);
     const buttonContainer = document.getElementsByClassName('drawing-buttons').item(0);
     const stimContainer = document.getElementById('stim-container');
+    const promptStim = document.getElementById('prompt-stim');
+    const promptTextDraw = document.getElementById('prompt-text-draw');
+    const promptTextResponse = document.getElementById('prompt-text-response');
+    const promptTextReview = document.getElementById('prompt-text-review');
+    const instructions = document.getElementById('drawing-instructions');
     
     // Waiting page / spinner
     const waiting = document.getElementById('waiting');
@@ -248,7 +295,7 @@
         const n_cols = stims.length > 12 ? 4 : 2;
         const response_correct = selected !== '' && correct === selected;
         stimContainer.classList.add('row', 'row-cols-' + n_cols);
-        console.log("correct", correct, "selected", selected, "response_correct", response_correct)
+    
         // create a new div for each stimulus
         stims.forEach((stim, i) => {
             var div = document.createElement('div');
@@ -309,6 +356,7 @@
             div.appendChild(input);
             div.appendChild(label);
             stimContainer.appendChild(div);
+            promptStim.style.display = 'block';
         });
         // show the done button, if we are the responder
         if (correct === '') {
@@ -333,10 +381,13 @@
         containerEl.style.display = 'none';
         // remove stimuli
         stimContainer.innerHTML = '';
+        promptStim.style.display = 'none';
         // hide waiting message
         hideWaiting();
         // hide timeout warning
         timeoutWarning.style.display = 'none';
+        // hide instructions
+        instructions.style.display = 'none';
         // hide buttons
         buttonContainer.style.display = 'none';
         hideAndRemoveEvent(doneBtn, doneEvent);
@@ -355,6 +406,8 @@
     function initCanvas(update = true, readOnly = false){
         // Creates a new drawer object using the SVG element
         console.log("setting up drawer");
+        // show instructions
+        instructions.style.display = 'block';
         // show buttons
         if (!readOnly) {
             buttonContainer.style.display = 'block';
@@ -437,6 +490,26 @@
         }, 1000);
     }
 
+    function showPromptText(which) {
+        switch (which) {
+            case 'draw':
+                promptTextDraw.style.display = 'block';
+                promptTextResponse.style.display = 'none';
+                promptTextReview.style.display = 'none';
+                break;
+            case 'response':
+                promptTextDraw.style.display = 'none';
+                promptTextResponse.style.display = 'block';
+                promptTextReview.style.display = 'none';
+                break;
+            case 'review':
+                promptTextDraw.style.display = 'none';
+                promptTextResponse.style.display = 'none';
+                promptTextReview.style.display = 'block';
+                break;
+        }
+    }
+
     // listen for messages from the server
     function liveRecv(data) {
         const completed = Object.keys(data).includes('completed') && data.completed === true;
@@ -468,13 +541,17 @@
                     }
                     timeLeft = time_left;
                     initTimeout(timeLeft);
+
+                    showPromptText('draw');
                     displayStimuli(stims, correct_stim);
+                    // here we will show the drawing canvas
                     initCanvas();
                     if (has_drawing) Helper.importSVG(drawer, drawing_contents);
 
                 // if we're the responder and the drawing has been completed
                 } else if (!is_drawer && completed && !response_completed) {
                     // here we will show the response options and the drawing (readonly)
+                    showPromptText('response');
                     displayStimuli(stims, correct_stim);
                     initCanvas(false, true);
                     if (has_drawing) Helper.importSVG(drawer, data.drawing);
@@ -484,6 +561,7 @@
                     } else {
                         // both players can reveiw the results
                         console.log("reviewing results", correct_stim, response, response_correct);
+                        showPromptText('review');
                         displayStimuli(stims, correct_stim, response);
                     }
                 }
@@ -496,6 +574,7 @@
                 } else {
                     // if we are the responder, we should show the drawing
                     hideWaiting();
+                    showPromptText('response');
                     displayStimuli(stims, correct_stim);
                     initCanvas(false, true);
                     if (has_drawing) Helper.importSVG(drawer, data.drawing);
@@ -504,6 +583,7 @@
             case 'show_response':
                 // both players get to see the results
                 hideWaiting();
+                showPromptText('review');
                 displayStimuli(stims, correct_stim, response);
                 break;
             case 'continue':
