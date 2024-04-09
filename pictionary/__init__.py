@@ -428,7 +428,7 @@ page_sequence = [
     PhaseInstructions,
     Waiting,
     # this page will repeat for the number of rounds in each phase
-    #Drawing,
+    Drawing,
     # PhaseComplete, # this is no longer needed
     PostExperimentSurvey,
     ExperimentThankYou,
