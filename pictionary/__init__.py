@@ -150,6 +150,7 @@ class PictionaryTrial(ExtraModel, metaclass=AnnotationFreeMeta):
 def creating_session(subsession: Subsession):
     players: list[Player] = subsession.get_players()
     print(f"Loading stimuli and randomizing order for round {subsession.round_number}")
+
     # load the stims and randomize for all phases
     phase_stims = PHASES[subsession.round_number - 1] * C.PHASE_STIM_REPEATS[subsession.round_number - 1]
 
@@ -439,6 +440,9 @@ page_sequence = [
 def custom_export(players):
     yield [
         "session",
+        "group_id",  # pseudo group id
+        "participant_1",
+        "participant_2",
         "drawer",
         "responder",
         "phase",
@@ -453,25 +457,39 @@ def custom_export(players):
         "svg",
         "stim_order",
         # survey data
-        "age_draw",
-        "gender_draw",
-        "native_language_draw",
-        "language_other_draw",
-        "i_you_draw",
-        "present_past_draw",
-        "could_should_draw",
-        "age_resp",
-        "gender_resp",
-        "native_language_resp",
-        "language_other_resp",
-        "i_you_resp",
+        "participant_1_age",
+        "participant_1_gender",
+        "participant_1_native_language",
+        "participant_1_language_other",
+        "participant_1_i_you",
+        "participant_1_present_past",
+        "participant_1_could_should",
+        "participant_2_age",
+        "participant_2_gender",
+        "participant_2_native_language",
+        "participant_2_language_other",
+        "participant_2_i_you",
+        "participant_2_present_past",
+        "participant_2_could_should",
     ]
 
     trials = PictionaryTrial.filter()
 
+    if not trials:
+        return
+    
+    # get pseudo participant_1 and 2
+    participant_1 = trials[0].drawer
+    participant_2 = trials[0].responder
+    # pseudo group id
+    group_code = participant_1.participant.code + '_' + participant_2.participant.code
+
     for trial in trials:
         yield [
             trial.subsess.session.code if trial.subsess else "N/A",
+            group_code,
+            participant_1.participant.code,
+            participant_2.participant.code,
             trial.drawer.participant.code,
             trial.responder.participant.code,
             trial.phase,
@@ -486,16 +504,18 @@ def custom_export(players):
             trial.drawing.svg if trial.drawing else "N/A",
             trial.group.stim_order if trial.group else "N/A",
             # survey data
-            trial.drawer.age,
-            trial.drawer.field_display('gender'),
-            trial.drawer.native_language,
-            trial.drawer.language_other,
-            trial.drawer.i_you,
-            trial.drawer.present_past,
-            trial.drawer.could_should,
-            trial.responder.age,
-            trial.responder.field_display('gender'),
-            trial.responder.native_language,
-            trial.responder.language_other,
-            trial.responder.i_you,
+            participant_1.age,
+            participant_1.field_display('gender'),
+            participant_1.native_language,
+            participant_1.language_other,
+            participant_1.i_you,
+            participant_1.present_past,
+            participant_1.could_should,
+            participant_2.age,
+            participant_2.field_display('gender'),
+            participant_2.native_language,
+            participant_2.language_other,
+            participant_2.i_you,
+            participant_2.present_past,
+            participant_2.could_should,
         ]
