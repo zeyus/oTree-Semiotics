@@ -101,18 +101,16 @@ class Player(BasePlayer, metaclass=AnnotationFreeMeta):
 
     # workaround / hack for previous values that don't exist
     def field_display(self, name):
-        value = getattr(self, name)
-        target = self.get_user_defined_target()
-        choices_func = getattr(target, name + '_choices', None)
-        if choices_func:
-            choices = choices_func(self)
-        else:
-            choices = getattr(type(self), name).form_props['choices']
-        choice_dict = dict(expand_choice_tuples(choices))
-        try:
-            return choice_dict[value]
-        except KeyError:
-            return "N/A"
+        if name in ['gender', 'native_language']:
+            val = None
+            try:
+                val = super().field_display(name)
+            except Exception:
+                pass
+            if val is None:
+                return "N/A"
+            return val
+        return super().field_display(name)
 
 class Group(BaseGroup, metaclass=AnnotationFreeMeta):
     phase: int = models.IntegerField()
@@ -479,13 +477,16 @@ def custom_export(players):
     if not trials:
         return
     
-    # get pseudo participant_1 and 2
-    participant_1 = trials[0].drawer
-    participant_2 = trials[0].responder
-    # pseudo group id
-    group_code = participant_1.participant.code + '_' + participant_2.participant.code
+    
 
     for trial in trials:
+        # get pseudo participant_1 and 2
+        p_codes = [trial.drawer.participant.code, trial.responder.participant.code]
+        p_codes.sort()
+        participant_1 = trial.drawer if p_codes[0] == trial.drawer.participant.code else trial.responder
+        participant_2 = trial.responder if p_codes[1] == trial.responder.participant.code else trial.drawer
+        # pseudo group id
+        group_code = participant_1.participant.code + '_' + participant_2.participant.code
         yield [
             trial.subsess.session.code if trial.subsess else "N/A",
             group_code,
