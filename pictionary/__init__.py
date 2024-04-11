@@ -52,10 +52,11 @@ class Subsession(BaseSubsession, metaclass=AnnotationFreeMeta):
 
 class Player(BasePlayer, metaclass=AnnotationFreeMeta):
     ready: bool = models.BooleanField(initial=False)  # type: ignore
-    age = models.IntegerField(
+    age: int = models.IntegerField(
         label='Your age',
-        min=18, max=99)
-    gender = models.IntegerField(
+        min=18, max=99
+    )  # type: ignore
+    gender: int = models.IntegerField(
         label='Your gender',
         choices=[
             [0, 'Prefer not to say'],
@@ -64,23 +65,23 @@ class Player(BasePlayer, metaclass=AnnotationFreeMeta):
             [3, 'Non-binary'],
             [4, 'Other']
         ]
-    )
-    native_language = models.StringField(
+    )  # type: ignore
+    native_language: str = models.StringField(
         label='What is your native language?',
         choices=[
-            'Danish',
-            'English',
-            'French',
-            'German',
-            'Spanish',
-            'Swedish',
-            'Other'
+            [0, 'Danish'],
+            [1, 'English'],
+            [2, 'French'],
+            [3, 'German'],
+            [4, 'Spanish'],
+            [5, 'Swedish'],
+            [6, 'Other'],
         ]
-    )
+    )  # type: ignore
     language_other = models.StringField(
         label='If you selected "Other", please specify:',
         blank=True
-    )
+    )  # type: ignore
 
     # post experiment survey
     # in your drawings, how did you represent/distinguish between:
@@ -90,13 +91,13 @@ class Player(BasePlayer, metaclass=AnnotationFreeMeta):
 
     i_you = models.LongStringField(
         label='In your drawings, how did you represent/distinguish between "I" and "you"?'
-    )
+    )  # type: ignore
     present_past = models.LongStringField(
         label='In your drawings, how did you represent/distinguish between present and past tense?'
-    )
+    )  # type: ignore
     could_should = models.LongStringField(
         label='In your drawings, how did you represent/distinguish between "could" and "should"?'
-    )
+    )  # type: ignore
 
     # workaround / hack for previous values that don't exist
     def field_display(self, name):
@@ -506,14 +507,14 @@ def custom_export(players):
             # survey data
             participant_1.age,
             participant_1.field_display('gender'),
-            participant_1.native_language,
+            participant_1.field_display('native_language'),
             participant_1.language_other,
             participant_1.i_you,
             participant_1.present_past,
             participant_1.could_should,
             participant_2.age,
             participant_2.field_display('gender'),
-            participant_2.native_language,
+            participant_2.field_display('native_language'),
             participant_2.language_other,
             participant_2.i_you,
             participant_2.present_past,
