@@ -66,7 +66,7 @@ class Player(BasePlayer, metaclass=AnnotationFreeMeta):
             [4, 'Other']
         ]
     )  # type: ignore
-    native_language: str = models.StringField(
+    native_language: str = models.IntegerField(
         label='What is your native language?',
         choices=[
             [0, 'Danish'],
