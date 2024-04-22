@@ -147,14 +147,16 @@ class PictionaryTrial(ExtraModel, metaclass=AnnotationFreeMeta):
 
 # runs on each round
 def creating_session(subsession: Subsession):
-    players: list[Player] = subsession.get_players()
+    # players: list[Player] = subsession.get_players()
     print(f"Loading stimuli and randomizing order for round {subsession.round_number}")
 
     # load the stims and randomize for all phases
     phase_stims = PHASES[subsession.round_number - 1] * C.PHASE_STIM_REPEATS[subsession.round_number - 1]
 
     groups = subsession.get_groups()
+    group: Group
     for group in groups:
+        players = group.get_players()
         shuffle(phase_stims)
         group.stim_order = ", ".join([stim[0] for stim in phase_stims])
         # Prepare all the rounds
@@ -484,9 +486,8 @@ def custom_export(players):
         players = trial.group.get_players()
         participant_1 = players[0]
         participant_2 = players[1]
-        
-        drawer = participant_1 if trial.drawer_id == participant_1.id_in_group else participant_2
-        responder = participant_1 if trial.responder_id == participant_1.id_in_group else participant_2
+        drawer = participant_1 if trial.drawer_id == 1 else participant_2
+        responder = participant_1 if trial.responder_id == 1 else participant_2
 
         # pseudo group id
         group_code = participant_1.participant.code + '_' + participant_2.participant.code
