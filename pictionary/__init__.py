@@ -481,10 +481,13 @@ def custom_export(players):
 
     for trial in trials:
         # get pseudo participant_1 and 2
-        p_codes = [trial.drawer.participant.code, trial.responder.participant.code]
-        p_codes.sort()
-        participant_1 = trial.drawer if p_codes[0] == trial.drawer.participant.code else trial.responder
-        participant_2 = trial.responder if p_codes[1] == trial.responder.participant.code else trial.drawer
+        players = trial.group.get_players()
+        participant_1 = players[0]
+        participant_2 = players[1]
+        
+        drawer = participant_1 if trial.drawer_id == participant_1.id_in_group else participant_2
+        responder = participant_1 if trial.responder_id == participant_1.id_in_group else participant_2
+
         # pseudo group id
         group_code = participant_1.participant.code + '_' + participant_2.participant.code
         yield [
@@ -492,8 +495,8 @@ def custom_export(players):
             group_code,
             participant_1.participant.code,
             participant_2.participant.code,
-            trial.drawer.participant.code,
-            trial.responder.participant.code,
+            drawer.participant.code,
+            responder.participant.code,
             trial.phase,
             trial.trial,
             trial.stim,
