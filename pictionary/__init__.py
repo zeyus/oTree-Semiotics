@@ -486,8 +486,8 @@ def custom_export(players):
         players = trial.group.get_players()
         participant_1 = players[0]
         participant_2 = players[1]
-        drawer = participant_1 if trial.drawer_id == 1 else participant_2
-        responder = participant_1 if trial.responder_id == 1 else participant_2
+        drawer = participant_1 if trial.drawer.id_in_group == 1 else participant_2
+        responder = participant_1 if trial.responder.id_in_group == 1 else participant_2
 
         # pseudo group id
         group_code = participant_1.participant.code + '_' + participant_2.participant.code
